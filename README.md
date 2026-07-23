@@ -30,3 +30,14 @@ Beim ersten Start erscheinen automatisch:
 - Gardasee geplant
 
 Sobald du im Adminbereich eigene Meilensteine speicherst, werden diese Standardwerte ersetzt.
+
+
+## Mobile Optimierung
+
+- kompakter mobiler Header
+- Hero und Kennzahlen für kleine Displays angepasst
+- horizontal wischbare Meilensteine
+- größere Touchflächen
+- einspaltige Tour- und Challenge-Karten
+- mobile Bottom-Sheet-Modals
+- mobil optimierter Adminbereich
