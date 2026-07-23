@@ -24,7 +24,7 @@ import {
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
-const PLACEHOLDER_IMAGE = "https://github.com/YounesBouqoro/younes-on-tour/blob/b187019e9baf9f13ad06592c545a6571197b8531/media/Hero-image-neu";
+const PLACEHOLDER_IMAGE = "https://github.com/YounesBouqoro/younes-on-tour/blob/bfc5c6b0f7125696f436cf37da86ba1e781bc64c/media/hero-neu.png";
 
 const defaultSite = {
   heroTitle: "Von Düsseldorf\nin die Welt.",
