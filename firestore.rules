@@ -4,7 +4,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return request.auth != null
-        && request.auth.token.email == "DEINE_EMAIL@BEISPIEL.DE";
+        && request.auth.token.email == "younesbouqoro@gmail.com";
     }
 
     match /tours/{id} {
