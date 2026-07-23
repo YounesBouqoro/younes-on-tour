@@ -1,216 +1,72 @@
 import { firebaseConfig, ADMIN_EMAIL } from "./firebase-config.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
-import {
-  getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
-import {
-  getFirestore, collection, addDoc, updateDoc, deleteDoc, doc,
-  onSnapshot, query, orderBy, serverTimestamp
-} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+import { getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+import { getFirestore,collection,onSnapshot,query,orderBy,addDoc,updateDoc,deleteDoc,doc,serverTimestamp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
-const firebaseReady = !firebaseConfig.apiKey.startsWith("DEIN_");
-let auth, db;
-if (firebaseReady) {
-  const app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  db = getFirestore(app);
+const fb=initializeApp(firebaseConfig),auth=getAuth(fb),db=getFirestore(fb);
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+let tours=[],milestones=[],filter="all";
+const esc=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+const n=v=>Number(v||0),date=v=>v?new Date(v+"T12:00:00").toLocaleDateString("de-DE"):"";
+
+const defaultMilestones=[
+ {id:"venlo",title:"Venlo",subtitle:"Erste Auslandstour",icon:"⛪",order:1,completed:true},
+ {id:"xanten",title:"Xanten",subtitle:"Langdistanz-Test",icon:"🏰",order:2,completed:false},
+ {id:"amsterdam",title:"Amsterdam",subtitle:"One-Way-Challenge",icon:"🏘️",order:3,completed:false},
+ {id:"paris",title:"Paris",subtitle:"Mehrtagestour",icon:"🗼",order:4,completed:false},
+ {id:"gardasee",title:"Gardasee",subtitle:"Das große Abenteuer",icon:"⛰️",order:5,completed:false}
+];
+
+function pub(){return tours.filter(t=>t.published!==false)}
+function renderHero(){
+ const p=pub(),bike=p.filter(t=>t.type==="bike").reduce((s,t)=>s+n(t.distance),0),run=p.filter(t=>t.type==="run").reduce((s,t)=>s+n(t.distance),0);
+ $("#heroBikeKm").textContent=bike.toFixed(1)+" km";$("#heroRunKm").textContent=run.toFixed(1)+" km";$("#heroTourCount").textContent=p.length;
+ const list=(milestones.length?milestones:defaultMilestones).slice().sort((a,b)=>n(a.order)-n(b.order));
+ const done=list.filter(m=>m.completed).length,pct=list.length?Math.round(done/list.length*100):0;
+ $("#milestoneFraction").textContent=`${done} / ${list.length}`;$("#heroProgressPercent").textContent=pct+"%";$("#heroProgressBar").style.width=pct+"%";
+ $("#heroMilestones").innerHTML=list.map(m=>`<div class="milestone ${m.completed?"done":""}"><div class="emblem">${esc(m.icon||"•")}</div><strong>${esc(m.title)}</strong><small>${esc(m.completed?"Erledigt":m.subtitle||"Geplant")}</small></div>`).join("");
 }
-
-const $ = (s) => document.querySelector(s);
-const $$ = (s) => [...document.querySelectorAll(s)];
-const state = { tours: [], filter: "all", user: null, map: null };
-
-const demoTours = [{
-  id:"demo",
-  title:"Erste längere Ausfahrt",
-  type:"bike",
-  date:"2026-07-22",
-  route:"Düsseldorf – Rheinrunde",
-  distance:57.06,
-  duration:"2:35:55",
-  speed:"22,0 km/h",
-  elevation:148,
-  heartRate:132,
-  coverUrl:"https://images.unsplash.com/photo-1502744688674-c619d1586c9e?auto=format&fit=crop&w=1600&q=85",
-  galleryUrls:[],
-  story:"Die erste längere Ausfahrt mit dem neuen Canyon. Bewusst locker gefahren, ohne auf maximale Geschwindigkeit zu gehen. Das Ziel war klar: entspannt Kilometer sammeln und herausfinden, wie sich Rad, Sitzposition und Körper nach mehr als zwei Stunden anfühlen.",
-  learnings:"Das Tempo war kontrolliert, der Puls niedrig und es waren noch Reserven vorhanden. Ein solider Ausgangspunkt für Xanten, Amsterdam und später Paris.",
-  published:true
-}];
-
-function esc(v=""){return String(v).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
-function formatDate(v){return v ? new Intl.DateTimeFormat("de-DE",{day:"2-digit",month:"long",year:"numeric"}).format(new Date(v+"T12:00:00")) : ""}
-function sportLabel(t){return t==="run"?"Laufen":"Radfahren"}
-function metricLabel(t){return t==="run"?"Pace":"Ø Tempo"}
-
-function render(){
-  const visible=state.tours.filter(t=>t.published!==false && (state.filter==="all"||t.type===state.filter));
-  $("#tourGrid").innerHTML=visible.map(t=>`
-    <article class="tour-card" data-id="${esc(t.id)}">
-      <div class="tour-image" style="background-image:url('${esc(t.coverUrl||"https://images.unsplash.com/photo-1552674605-db6ffd4facb5?auto=format&fit=crop&w=1200&q=80")}')">
-        <span class="sport-badge">${sportLabel(t.type)}</span>
-      </div>
-      <div class="tour-body">
-        <h3>${esc(t.title)}</h3><p class="tour-route">${esc(t.route)} · ${formatDate(t.date)}</p>
-        <div class="metric-row">
-          <div><strong>${esc(t.distance)} km</strong><span>DISTANZ</span></div>
-          <div><strong>${esc(t.duration||"–")}</strong><span>DAUER</span></div>
-          <div><strong>${esc(t.speed||"–")}</strong><span>${metricLabel(t.type).toUpperCase()}</span></div>
-        </div>
-      </div>
-    </article>`).join("");
-  $("#emptyState").classList.toggle("hidden",visible.length>0);
-  $$(".tour-card").forEach(el=>el.onclick=()=>openDetail(el.dataset.id));
-  updateStats();
-  renderAdminList();
+function renderTours(){
+ const list=pub().filter(t=>filter==="all"||t.type===filter);
+ $("#tourGrid").innerHTML=list.map(t=>`<article class="tour-card" data-tour="${t.id}"><div class="tour-image" style="background-image:url('${esc(t.coverUrl||"")}')"></div><div class="tour-body"><h3>${esc(t.title)}</h3><p>${esc(t.route)} · ${date(t.date)}</p><div class="metrics"><div><strong>${n(t.distance)} km</strong><span>Distanz</span></div><div><strong>${esc(t.duration||"–")}</strong><span>Dauer</span></div><div><strong>${esc(t.speed||"–")}</strong><span>${t.type==="run"?"Pace":"Ø Tempo"}</span></div></div></div></article>`).join("");
+ $$("[data-tour]").forEach(x=>x.onclick=()=>openTour(x.dataset.tour));
 }
-
-function updateStats(){
-  const pub=state.tours.filter(t=>t.published!==false);
-  const bike=pub.filter(t=>t.type==="bike").reduce((s,t)=>s+Number(t.distance||0),0);
-  const run=pub.filter(t=>t.type==="run").reduce((s,t)=>s+Number(t.distance||0),0);
-  const longest=Math.max(0,...pub.map(t=>Number(t.distance||0)));
-  $("#statTours").textContent=pub.length;
-  $("#statBike").textContent=`${bike.toLocaleString("de-DE",{maximumFractionDigits:1})} km`;
-  $("#statRun").textContent=`${run.toLocaleString("de-DE",{maximumFractionDigits:1})} km`;
-  $("#statLongest").textContent=`${longest.toLocaleString("de-DE",{maximumFractionDigits:1})} km`;
+function renderChallenges(){
+ const list=(milestones.length?milestones:defaultMilestones).slice().sort((a,b)=>n(a.order)-n(b.order));
+ $("#challengeGrid").innerHTML=list.map(m=>`<article class="challenge-card ${m.completed?"done":""}"><span class="challenge-status">${m.completed?"ERLEDIGT":"GEPLANT"}</span><h3>${esc(m.icon)} ${esc(m.title)}</h3><p>${esc(m.subtitle||"")}</p></article>`).join("");
 }
+function openTour(id){const t=tours.find(x=>x.id===id);if(!t)return;$("#tourDetail").innerHTML=`<div class="detail-hero" style="background-image:url('${esc(t.coverUrl||"")}')"><div><p class="eyebrow">${t.type==="bike"?"RADFAHREN":"LAUFEN"}</p><h2>${esc(t.title)}</h2><p>${esc(t.route)} · ${date(t.date)}</p></div></div><div class="detail-body"><h3>${n(t.distance)} km · ${esc(t.duration||"")}</h3><p>${esc(t.story||"")}</p>${t.learnings?`<h3>Fazit</h3><p>${esc(t.learnings)}</p>`:""}</div>`;$("#tourModal").classList.remove("hidden")}
+$$("[data-close]").forEach(b=>b.onclick=()=>$("#"+b.dataset.close).classList.add("hidden"));
+$("#tourFilters").onclick=e=>{const b=e.target.closest("button");if(!b)return;filter=b.dataset.filter;$$("#tourFilters button").forEach(x=>x.classList.toggle("active",x===b));renderTours()};
+$("#themeToggle").onclick=()=>{const t=document.documentElement.dataset.theme==="dark"?"light":"dark";document.documentElement.dataset.theme=t;localStorage.setItem("theme",t)};document.documentElement.dataset.theme=localStorage.getItem("theme")||"light";
 
-function openDetail(id){
-  const t=state.tours.find(x=>x.id===id); if(!t)return;
-  const gallery=(t.galleryUrls||[]).map(u=>`<img loading="lazy" src="${esc(u)}" alt="">`).join("");
-  $("#detailContent").innerHTML=`
-    <button class="detail-close" aria-label="Schließen">×</button>
-    <div class="detail-hero" style="background-image:url('${esc(t.coverUrl||"")}')"><div>
-      <p class="eyebrow">${sportLabel(t.type)} · ${formatDate(t.date)}</p><h2>${esc(t.title)}</h2><p>${esc(t.route)}</p>
-    </div></div>
-    <div class="detail-body">
-      <div class="detail-metrics">
-        <div><strong>${esc(t.distance)} km</strong><span>Distanz</span></div>
-        <div><strong>${esc(t.duration||"–")}</strong><span>Dauer</span></div>
-        <div><strong>${esc(t.speed||"–")}</strong><span>${metricLabel(t.type)}</span></div>
-        <div><strong>${esc(t.elevation||0)} m</strong><span>Höhenmeter</span></div>
-        <div><strong>${esc(t.heartRate||"–")}</strong><span>Ø Herzfrequenz</span></div>
-      </div>
-      <h3>Die Geschichte</h3><p class="detail-text">${esc(t.story)}</p>
-      ${t.learnings?`<h3>Fazit & Learnings</h3><p class="detail-text">${esc(t.learnings)}</p>`:""}
-      ${t.gpxUrl?`<h3>Strecke</h3><div id="routeMap" class="route-map"><div class="map-loading">GPX-Strecke wird geladen …</div></div>`:""}
-      ${gallery?`<h3>Galerie</h3><div class="gallery">${gallery}</div>`:""}
-      <div class="link-row">
-        ${t.activityUrl?`<a class="button button-primary" href="${esc(t.activityUrl)}" target="_blank" rel="noopener">Aktivität öffnen</a>`:""}
-        ${t.videoUrl?`<a class="button button-ghost-dark" href="${esc(t.videoUrl)}" target="_blank" rel="noopener">Video ansehen</a>`:""}
-        ${t.gpxUrl?`<a class="button button-ghost-dark" href="${esc(t.gpxUrl)}" target="_blank" rel="noopener">GPX herunterladen</a>`:""}
-      </div>
-    </div>`;
-  $(".detail-close").onclick=()=>closeDetail();
-  $("#detailDialog").showModal();
-  if(t.gpxUrl) renderGpxMap(t.gpxUrl);
+const openLogin=()=>$("#loginModal").classList.remove("hidden");$("#loginBtn").onclick=openLogin;
+$("#loginForm").onsubmit=async e=>{e.preventDefault();try{await signInWithEmailAndPassword(auth,$("#loginEmail").value,$("#loginPassword").value);$("#loginModal").classList.add("hidden")}catch{$("#loginError").textContent="Login fehlgeschlagen."}};
+onAuthStateChanged(auth,u=>{const ok=u?.email===ADMIN_EMAIL;$("#loginBtn").textContent=ok?"Admin":"Login";$("#loginBtn").onclick=ok?()=>$("#adminPanel").classList.remove("hidden"):openLogin});
+$("#logoutBtn").onclick=()=>signOut(auth);$("#closeAdminBtn").onclick=()=>$("#adminPanel").classList.add("hidden");
+
+const tourFields=["title","type","date","route","distance","duration","speed","elevation","heartRate","coverUrl","activityUrl","gpxUrl","story","learnings","published"];
+function resetTour(){$("#tourForm").reset();$("#tourId").value="";$("#date").value=new Date().toISOString().slice(0,10);$("#published").checked=true}
+$("#resetTourBtn").onclick=resetTour;
+$("#tourForm").onsubmit=async e=>{e.preventDefault();const d={};tourFields.forEach(k=>d[k]=k==="published"?$("#"+k).checked:$("#"+k).value);d.distance=n(d.distance);d.elevation=n(d.elevation);d.heartRate=n(d.heartRate);d.galleryUrls=$("#galleryUrls").value.split("\n").map(x=>x.trim()).filter(Boolean);d.updatedAt=serverTimestamp();try{const id=$("#tourId").value;if(id)await updateDoc(doc(db,"tours",id),d);else await addDoc(collection(db,"tours"),{...d,createdAt:serverTimestamp()});resetTour();$("#tourStatus").textContent="Gespeichert."}catch{$("#tourStatus").textContent="Fehler beim Speichern."}};
+function editTour(id){const t=tours.find(x=>x.id===id);if(!t)return;$("#tourId").value=id;tourFields.forEach(k=>k==="published"?$("#"+k).checked=t[k]!==false:$("#"+k).value=t[k]??"");$("#galleryUrls").value=(t.galleryUrls||[]).join("\n")}
+async function delTour(id){if(confirm("Tour löschen?"))await deleteDoc(doc(db,"tours",id))}
+
+function resetMilestone(){$("#milestoneForm").reset();$("#milestoneId").value=""}
+$("#resetMilestoneBtn").onclick=resetMilestone;
+$("#milestoneForm").onsubmit=async e=>{e.preventDefault();const d={title:$("#milestoneTitle").value,icon:$("#milestoneIcon").value,order:n($("#milestoneOrder").value),completed:$("#milestoneCompleted").value==="true",subtitle:$("#milestoneSubtitle").value,updatedAt:serverTimestamp()};try{const id=$("#milestoneId").value;if(id)await updateDoc(doc(db,"milestones",id),d);else await addDoc(collection(db,"milestones"),{...d,createdAt:serverTimestamp()});resetMilestone();$("#milestoneStatus").textContent="Gespeichert."}catch{$("#milestoneStatus").textContent="Fehler beim Speichern."}};
+function editMilestone(id){const m=milestones.find(x=>x.id===id);if(!m)return;$("#milestoneId").value=id;$("#milestoneTitle").value=m.title||"";$("#milestoneIcon").value=m.icon||"";$("#milestoneOrder").value=m.order||0;$("#milestoneCompleted").value=String(!!m.completed);$("#milestoneSubtitle").value=m.subtitle||""}
+async function delMilestone(id){if(confirm("Meilenstein löschen?"))await deleteDoc(doc(db,"milestones",id))}
+
+function adminLists(){
+ $("#adminTourList").innerHTML=tours.map(t=>`<div class="admin-row"><div><strong>${esc(t.title)}</strong><small>${date(t.date)} · ${n(t.distance)} km</small></div><div><button class="small-btn" data-et="${t.id}">Bearbeiten</button> <button class="small-btn" data-dt="${t.id}">Löschen</button></div></div>`).join("");
+ $$("[data-et]").forEach(b=>b.onclick=()=>editTour(b.dataset.et));$$("[data-dt]").forEach(b=>b.onclick=()=>delTour(b.dataset.dt));
+ $("#adminMilestoneList").innerHTML=milestones.map(m=>`<div class="admin-row"><div><strong>${esc(m.icon)} ${esc(m.title)}</strong><small>${m.completed?"Erledigt":"Geplant"} · Position ${n(m.order)}</small></div><div><button class="small-btn" data-em="${m.id}">Bearbeiten</button> <button class="small-btn" data-dm="${m.id}">Löschen</button></div></div>`).join("");
+ $$("[data-em]").forEach(b=>b.onclick=()=>editMilestone(b.dataset.em));$$("[data-dm]").forEach(b=>b.onclick=()=>delMilestone(b.dataset.dm));
 }
+$$(".admin-tabs button").forEach(b=>b.onclick=()=>{$$(".admin-tabs button").forEach(x=>x.classList.toggle("active",x===b));$("#adminToursTab").classList.toggle("hidden",b.dataset.tab!=="tours");$("#adminMilestonesTab").classList.toggle("hidden",b.dataset.tab!=="milestones")});
 
-
-function closeDetail(){
-  if(state.map){state.map.remove();state.map=null}
-  $("#detailDialog").close();
-}
-
-async function renderGpxMap(url){
-  const el=$("#routeMap");
-  if(!el||!window.L)return;
-  try{
-    const res=await fetch(url);
-    if(!res.ok) throw new Error("GPX konnte nicht geladen werden");
-    const text=await res.text();
-    const xml=new DOMParser().parseFromString(text,"application/xml");
-    const points=[...xml.querySelectorAll("trkpt")].map(p=>[Number(p.getAttribute("lat")),Number(p.getAttribute("lon"))]).filter(p=>Number.isFinite(p[0])&&Number.isFinite(p[1]));
-    if(points.length<2) throw new Error("Keine Trackpunkte gefunden");
-    el.innerHTML="";
-    state.map=L.map(el,{scrollWheelZoom:false});
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap-Mitwirkende"}).addTo(state.map);
-    const line=L.polyline(points,{weight:5,opacity:.9}).addTo(state.map);
-    state.map.fitBounds(line.getBounds(),{padding:[20,20]});
-  }catch(err){
-    console.error(err);
-    el.innerHTML='<div class="map-error">Die GPX-Datei konnte nicht angezeigt werden. Prüfe, ob der Link öffentlich erreichbar ist.</div>';
-  }
-}
-
-$$(".filter").forEach(b=>b.onclick=()=>{$$(".filter").forEach(x=>x.classList.remove("active"));b.classList.add("active");state.filter=b.dataset.filter;render()});
-$("#loginButton").onclick=()=>$("#loginDialog").showModal();
-$("#logoutButton").onclick=()=>signOut(auth);
-$("#closeAdmin").onclick=()=>$("#adminPanel").classList.add("hidden");
-$("#resetForm").onclick=resetForm;
-
-$("#loginForm").addEventListener("submit",async(e)=>{
-  e.preventDefault();
-  if(!firebaseReady){$("#loginError").textContent="Firebase ist noch nicht eingerichtet. Siehe README.";return}
-  try{
-    await signInWithEmailAndPassword(auth,$("#loginEmail").value,$("#loginPassword").value);
-    $("#loginDialog").close();
-  }catch(err){$("#loginError").textContent="Login fehlgeschlagen. E-Mail oder Passwort prüfen."}
-});
-
-function resetForm(){
-  $("#tourForm").reset();$("#editId").value="";$("#published").checked=true;$("#date").value=new Date().toISOString().slice(0,10);$("#saveStatus").textContent="";
-}
-
-function formData(){
-  return {
-    title:$("#title").value.trim(),type:$("#type").value,date:$("#date").value,route:$("#route").value.trim(),
-    distance:Number($("#distance").value),duration:$("#duration").value.trim(),speed:$("#speed").value.trim(),
-    elevation:Number($("#elevation").value||0),heartRate:Number($("#heartRate").value||0),
-    coverUrl:$("#coverUrl").value.trim(),
-    galleryUrls:$("#galleryUrls").value.split("\n").map(x=>x.trim()).filter(Boolean),
-    videoUrl:$("#videoUrl").value.trim(),activityUrl:$("#activityUrl").value.trim(),gpxUrl:$("#gpxUrl").value.trim(),
-    story:$("#story").value.trim(),learnings:$("#learnings").value.trim(),published:$("#published").checked,
-    updatedAt:serverTimestamp()
-  }
-}
-
-$("#tourForm").addEventListener("submit",async(e)=>{
-  e.preventDefault();
-  if(!state.user||state.user.email!==ADMIN_EMAIL){$("#saveStatus").textContent="Keine Admin-Berechtigung.";return}
-  try{
-    const id=$("#editId").value,data=formData();
-    if(id) await updateDoc(doc(db,"tours",id),data);
-    else await addDoc(collection(db,"tours"),{...data,createdAt:serverTimestamp()});
-    $("#saveStatus").textContent="Tour erfolgreich gespeichert.";
-    resetForm();
-  }catch(err){console.error(err);$("#saveStatus").textContent="Speichern fehlgeschlagen. Firestore-Regeln prüfen."}
-});
-
-function renderAdminList(){
-  if(!state.user)return;
-  $("#adminTourList").innerHTML=state.tours.map(t=>`<div class="admin-item">
-    <div><strong>${esc(t.title)}</strong><br><small>${formatDate(t.date)} · ${esc(t.distance)} km</small></div>
-    <div class="admin-actions"><button class="small-btn edit" data-id="${esc(t.id)}">Bearbeiten</button><button class="small-btn delete" data-id="${esc(t.id)}">Löschen</button></div>
-  </div>`).join("");
-  $$(".admin-item .edit").forEach(b=>b.onclick=()=>editTour(b.dataset.id));
-  $$(".admin-item .delete").forEach(b=>b.onclick=()=>removeTour(b.dataset.id));
-}
-function editTour(id){
-  const t=state.tours.find(x=>x.id===id);if(!t)return;
-  ["title","type","date","route","distance","duration","speed","elevation","heartRate","coverUrl","videoUrl","activityUrl","gpxUrl","story","learnings"].forEach(k=>$("#"+k).value=t[k]??"");
-  $("#galleryUrls").value=(t.galleryUrls||[]).join("\n");$("#published").checked=t.published!==false;$("#editId").value=id;window.scrollTo({top:0,behavior:"smooth"});
-}
-async function removeTour(id){
-  if(!confirm("Tour wirklich löschen?"))return;
-  await deleteDoc(doc(db,"tours",id));
-}
-
-if(firebaseReady){
-  onAuthStateChanged(auth,user=>{
-    state.user=user;
-    const isAdmin=user?.email===ADMIN_EMAIL;
-    $("#loginButton").classList.toggle("hidden",!!user);
-    $("#logoutButton").classList.toggle("hidden",!user);
-    $("#adminPanel").classList.toggle("hidden",!isAdmin);
-    renderAdminList();
-  });
-  const q=query(collection(db,"tours"),orderBy("date","desc"));
-  onSnapshot(q,snap=>{state.tours=snap.docs.map(d=>({id:d.id,...d.data()}));render()},err=>{
-    console.warn(err);state.tours=demoTours;render();
-  });
-}else{
-  state.tours=demoTours;render();
-}
-resetForm();
+function render(){renderHero();renderTours();renderChallenges();adminLists()}
+onSnapshot(query(collection(db,"tours"),orderBy("date","desc")),s=>{tours=s.docs.map(d=>({id:d.id,...d.data()}));render()});
+onSnapshot(collection(db,"milestones"),s=>{milestones=s.docs.map(d=>({id:d.id,...d.data()}));render()});
+resetTour();
