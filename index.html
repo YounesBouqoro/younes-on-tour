@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://www.gstatic.com">
   <link rel="preconnect" href="https://unpkg.com">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="styles.css?v=2.4">
+  <link rel="stylesheet" href="styles.css?v=2.5">
 </head>
 
 <body>
@@ -50,7 +50,7 @@
       <div class="hero-layout">
         <div class="hero-copy">
           <p class="eyebrow">BIKE · RUN · ADVENTURE</p>
-          <h1 id="heroTitle">Von Düsseldorf in die Welt.</h1>
+          <h1 id="heroTitle">Von Düsseldorf<br>in die Welt.</h1>
           <p id="heroSubtitle">Jede Tour ist ein neuer Meilenstein. Hier sieht man direkt, was schon geschafft ist und was als Nächstes kommt.</p>
         </div>
 
@@ -207,13 +207,14 @@
         <button type="button" data-tab="tours">Touren</button>
         <button type="button" data-tab="milestones">Meilensteine</button>
         <button type="button" data-tab="challenges">Challenges</button>
+        <button type="button" data-tab="gallery">Galerie</button>
       </div>
 
       <div id="siteTab" class="admin-tab-content">
         <form id="siteForm" class="admin-form">
           <label class="wide">Hero-Titel
-  <textarea id="siteHeroTitle" rows="3" placeholder="Von&#10;Düsseldorf&#10;in die Welt."></textarea>
-</label>
+            <textarea id="siteHeroTitle" rows="3" placeholder="Von&#10;Düsseldorf&#10;in die Welt."></textarea>
+          </label>
           <label class="wide">Hero-Untertext
             <textarea id="siteHeroSubtitle" rows="4"></textarea>
           </label>
@@ -347,10 +348,68 @@
         </form>
         <div id="adminChallengeList" class="admin-list"></div>
       </div>
+
+      <div id="galleryTab" class="admin-tab-content hidden">
+        <div class="hint-card">
+          <strong>Galerie direkt aus deiner Mediathek hochladen.</strong>
+          <span>Du kannst Bilder und Videos hochladen und festlegen, ob sie auf Desktop, Mobil oder überall angezeigt werden. Die Dateien werden in Firebase Storage gespeichert und als Galerie-Einträge in Firestore verwaltet.</span>
+        </div>
+
+        <form id="galleryForm" class="admin-form">
+          <input id="galleryItemId" type="hidden">
+          <input id="galleryFileUrl" type="hidden">
+          <input id="galleryStoragePath" type="hidden">
+          <input id="galleryMediaType" type="hidden">
+
+          <label>Titel<input id="galleryTitle" placeholder="z. B. Venlo Sonnenuntergang" required></label>
+
+          <label>Anzeige
+            <select id="galleryDisplayTarget">
+              <option value="both">Desktop & Mobil</option>
+              <option value="desktop">Nur Desktop</option>
+              <option value="mobile">Nur Mobil</option>
+            </select>
+          </label>
+
+          <label>Reihenfolge<input id="galleryOrder" type="number" value="1"></label>
+
+          <label>Mit Tour verknüpfen
+            <select id="galleryTourId">
+              <option value="">Keine Tour</option>
+            </select>
+          </label>
+
+          <label class="wide">Bild oder Video aus Mediathek auswählen
+            <input id="galleryFileInput" type="file" accept="image/*,video/*">
+          </label>
+
+          <div class="wide upload-preview hidden" id="galleryUploadPreview"></div>
+
+          <div class="wide upload-progress hidden" id="galleryUploadProgress">
+            <span id="galleryUploadBar"></span>
+          </div>
+
+          <label class="wide">Beschreibung
+            <textarea id="galleryDescription" rows="4" placeholder="Optionaler kurzer Text"></textarea>
+          </label>
+
+          <label class="check wide"><input id="galleryPublished" type="checkbox" checked> Öffentlich anzeigen</label>
+
+          <div class="wide admin-form-actions">
+            <button class="primary-btn" type="submit">Galerie-Eintrag speichern</button>
+            <button id="resetGalleryButton" class="secondary-btn" type="button">Leeren</button>
+          </div>
+
+          <p id="galleryStatus" class="wide status"></p>
+        </form>
+
+        <div id="adminGalleryList" class="admin-list"></div>
+      </div>
+
     </div>
   </section>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script type="module" src="app.js?v=2.4"></script>
+  <script type="module" src="app.js?v=2.5"></script>
 </body>
 </html>

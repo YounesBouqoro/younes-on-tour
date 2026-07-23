@@ -156,7 +156,7 @@ button{cursor:pointer}
   inset:0;
   background:
     linear-gradient(90deg, rgba(7,9,9,.92), rgba(7,9,9,.56) 48%, rgba(7,9,9,.82)),
-    url("https://github.com/YounesBouqoro/younes-on-tour/blob/bfc5c6b0f7125696f436cf37da86ba1e781bc64c/media/hero-neu.png") center/cover;
+    url("https://images.unsplash.com/photo-1529422643029-d4585747aaf2?auto=format&fit=crop&w=2400&q=85") center/cover;
   transform:scale(1.02);
 }
 .hero-fade{
@@ -193,7 +193,8 @@ button{cursor:pointer}
   max-width:680px;
   font-size:clamp(58px,7.4vw,118px);
   line-height:.89;
-  letter-spacing:-.075em;
+  letter-spacing:-.055em;
+  word-spacing:.08em;
   color:#fff;
   text-shadow:0 8px 35px rgba(0,0,0,.45);
 }
@@ -613,6 +614,72 @@ button{cursor:pointer}
   font-weight:900;
 }
 
+
+.gallery-tile video{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+.gallery-tile.video-tile:before{
+  content:"▶";
+  position:absolute;
+  z-index:3;
+  inset:0;
+  display:grid;
+  place-items:center;
+  color:#fff;
+  font-size:32px;
+  text-shadow:0 3px 18px rgba(0,0,0,.55);
+  pointer-events:none;
+}
+.gallery-detail-media{
+  width:100%;
+  max-height:70svh;
+  object-fit:contain;
+  display:block;
+  background:#000;
+}
+.upload-preview{
+  border:1px solid var(--line);
+  border-radius:18px;
+  overflow:hidden;
+  background:var(--surface2);
+}
+.upload-preview img,
+.upload-preview video{
+  width:100%;
+  max-height:360px;
+  object-fit:cover;
+  display:block;
+}
+.upload-progress{
+  height:11px;
+  border-radius:999px;
+  background:var(--line);
+  overflow:hidden;
+}
+.upload-progress span{
+  display:block;
+  height:100%;
+  width:0%;
+  border-radius:999px;
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+  transition:width .2s ease;
+}
+.gallery-target-badge{
+  display:inline-flex;
+  align-items:center;
+  min-height:24px;
+  padding:0 8px;
+  border-radius:999px;
+  background:rgba(242,85,44,.16);
+  color:var(--accent);
+  font-size:11px;
+  font-weight:950;
+  margin-left:6px;
+}
+
 .site-footer{
   display:grid;
   place-items:center;
@@ -928,7 +995,7 @@ button{cursor:pointer}
     inset:0 0 auto;
     background:
       linear-gradient(180deg, rgba(7,9,9,.38), rgba(7,9,9,.82) 58%, var(--bg) 100%),
-      var(--hero-image, url("https://github.com/YounesBouqoro/younes-on-tour/blob/9bf88c0c7f0df8435427bf294df20ddeb7207975/media/ChatGPT%20Image%2023.%20Juli%202026%2C%2014_33_22.png")) center/cover;
+      var(--hero-image, url("https://images.unsplash.com/photo-1529422643029-d4585747aaf2?auto=format&fit=crop&w=1400&q=80")) center/cover;
   }
   .hero-layout{
     display:block;
@@ -1195,7 +1262,73 @@ button{cursor:pointer}
     color:var(--accent);
   }
 
-  .site-footer{
+  
+.gallery-tile video{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+.gallery-tile.video-tile:before{
+  content:"▶";
+  position:absolute;
+  z-index:3;
+  inset:0;
+  display:grid;
+  place-items:center;
+  color:#fff;
+  font-size:32px;
+  text-shadow:0 3px 18px rgba(0,0,0,.55);
+  pointer-events:none;
+}
+.gallery-detail-media{
+  width:100%;
+  max-height:70svh;
+  object-fit:contain;
+  display:block;
+  background:#000;
+}
+.upload-preview{
+  border:1px solid var(--line);
+  border-radius:18px;
+  overflow:hidden;
+  background:var(--surface2);
+}
+.upload-preview img,
+.upload-preview video{
+  width:100%;
+  max-height:360px;
+  object-fit:cover;
+  display:block;
+}
+.upload-progress{
+  height:11px;
+  border-radius:999px;
+  background:var(--line);
+  overflow:hidden;
+}
+.upload-progress span{
+  display:block;
+  height:100%;
+  width:0%;
+  border-radius:999px;
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+  transition:width .2s ease;
+}
+.gallery-target-badge{
+  display:inline-flex;
+  align-items:center;
+  min-height:24px;
+  padding:0 8px;
+  border-radius:999px;
+  background:rgba(242,85,44,.16);
+  color:var(--accent);
+  font-size:11px;
+  font-weight:950;
+  margin-left:6px;
+}
+
+.site-footer{
     padding-bottom:120px;
   }
 

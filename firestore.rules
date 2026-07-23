@@ -4,7 +4,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return request.auth != null
-        && request.auth.token.email == "younesbouqoro@gmail.com";
+        && request.auth.token.email == "DEINE_EMAIL@BEISPIEL.DE";
     }
 
     match /tours/{id} {
@@ -24,6 +24,11 @@ service cloud.firestore {
 
     match /site/{id} {
       allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /galleryItems/{id} {
+      allow read: if resource.data.published == true || isAdmin();
       allow create, update, delete: if isAdmin();
     }
   }

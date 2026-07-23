@@ -20,11 +20,18 @@ import {
   orderBy,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+import {
+  getStorage,
+  ref,
+  uploadBytesResumable,
+  getDownloadURL,
+  deleteObject
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-storage.js";
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
-const PLACEHOLDER_IMAGE = "media/hero-neu.png";
+const PLACEHOLDER_IMAGE = "https://images.unsplash.com/photo-1529422643029-d4585747aaf2?auto=format&fit=crop&w=1800&q=80";
 
 const defaultSite = {
   heroTitle: "Von Düsseldorf\nin die Welt.",
@@ -156,10 +163,12 @@ const demoChallenges = [
 let firebaseReady = false;
 let auth = null;
 let db = null;
+let storage = null;
 let currentUser = null;
 let tours = [];
 let milestones = [];
 let challenges = [];
+let galleryItems = [];
 let siteConfig = { ...defaultSite };
 let activeTourFilter = "all";
 let activeMilestoneFilter = "all";
@@ -176,6 +185,7 @@ if (isConfigured) {
   const app = initializeApp(firebaseConfig);
   auth = getAuth(app);
   db = getFirestore(app);
+  storage = getStorage(app);
   firebaseReady = true;
 } else {
   console.warn("Firebase ist noch nicht konfiguriert. Die Seite läuft im Demo-Modus.");
@@ -193,29 +203,6 @@ function formatNumber(value, digits = 1) {
 
 function formatKm(value) {
   return `${formatNumber(value, 1)} km`;
-}
-
-
-function normalizeImageUrl(url) {
-  const value = String(url || "").trim();
-  if (!value) return "";
-
-  // GitHub "blob" links are file preview pages, not direct image files.
-  // Example:
-  // https://github.com/YounesBouqoro/younes-on-tour/blob/main/media/hero-neu.png
-  const blobMatch = value.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)$/);
-  if (blobMatch) {
-    const [, user, repo, ref, path] = blobMatch;
-
-    // For files inside this GitHub Pages repository, the relative path is the safest option.
-    if (repo === "younes-on-tour" && path.startsWith("media/")) {
-      return path;
-    }
-
-    return `https://raw.githubusercontent.com/${user}/${repo}/${ref}/${path}`;
-  }
-
-  return value;
 }
 
 function safe(value) {
@@ -244,6 +231,38 @@ function dateLabel(value) {
   return date.toLocaleDateString("de-DE", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+
+function currentViewportTarget() {
+  return window.matchMedia("(max-width: 760px)").matches ? "mobile" : "desktop";
+}
+
+function shouldShowOnCurrentDevice(item) {
+  const target = item.displayTarget || "both";
+  return target === "both" || target === currentViewportTarget();
+}
+
+function fileSafeName(name) {
+  return String(name || "upload")
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9._-]/g, "")
+    .slice(-90) || "upload";
+}
+
+function isVideoType(value) {
+  return String(value || "").startsWith("video");
+}
+
+function mediaTypeFromFile(file) {
+  return isVideoType(file?.type) ? "video" : "image";
+}
+
+function targetLabel(value) {
+  if (value === "desktop") return "Desktop";
+  if (value === "mobile") return "Mobil";
+  return "Desktop & Mobil";
+}
+
 function publishedTours() {
   return tours.filter((tour) => tour.published !== false);
 }
@@ -262,6 +281,13 @@ function visibleMilestones(filter = activeMilestoneFilter) {
 function visibleChallenges() {
   const source = challenges.length ? challenges : demoChallenges;
   return source.filter((challenge) => challenge.published !== false).sort((a, b) => numeric(a.order) - numeric(b.order));
+}
+
+function visibleGalleryItems() {
+  return galleryItems
+    .filter((item) => item.published !== false)
+    .filter(shouldShowOnCurrentDevice)
+    .sort((a, b) => numeric(a.order) - numeric(b.order));
 }
 
 function calculateStats() {
@@ -374,7 +400,7 @@ function renderAll() {
 function renderSiteConfig() {
   const title = siteConfig.heroTitle || defaultSite.heroTitle;
   const subtitle = siteConfig.heroSubtitle || defaultSite.heroSubtitle;
-  const image = normalizeImageUrl(siteConfig.heroImage || defaultSite.heroImage);
+  const image = siteConfig.heroImage || defaultSite.heroImage;
 
   $("#heroTitle").innerHTML = nl2br(title);
   $("#heroSubtitle").textContent = subtitle;
@@ -510,27 +536,61 @@ function renderChallenges() {
 }
 
 function renderGallery() {
-  const photos = [];
+  const manualItems = visibleGalleryItems();
+
+  const tourPhotos = [];
   publishedTours().forEach((tour) => {
-    if (tour.coverUrl) photos.push({ src: tour.coverUrl, title: tour.title, tourId: tour.id });
+    if (tour.coverUrl) tourPhotos.push({ src: tour.coverUrl, title: tour.title, tourId: tour.id, mediaType: "image", displayTarget: "both" });
     const gallery = Array.isArray(tour.galleryUrls) ? tour.galleryUrls : [];
-    gallery.forEach((src) => photos.push({ src, title: tour.title, tourId: tour.id }));
+    gallery.forEach((src) => tourPhotos.push({ src, title: tour.title, tourId: tour.id, mediaType: "image", displayTarget: "both" }));
   });
 
+  const combined = [
+    ...manualItems.map((item) => ({
+      src: item.url,
+      title: item.title,
+      id: item.id,
+      mediaType: item.mediaType || "image",
+      description: item.description || "",
+      displayTarget: item.displayTarget || "both",
+      isManualGalleryItem: true
+    })),
+    ...tourPhotos
+  ].filter((item) => item.src);
+
   const grid = $("#galleryGrid");
-  if (!photos.length) {
-    grid.innerHTML = `<div class="empty-state">Noch keine Bilder vorhanden.</div>`;
+  if (!combined.length) {
+    grid.innerHTML = `<div class="empty-state">Noch keine Bilder oder Videos vorhanden.</div>`;
     return;
   }
 
-  grid.innerHTML = photos.slice(0, 9).map((photo) => `
-    <button class="gallery-tile" type="button" data-tour-id="${safe(photo.tourId)}" style="background-image:url('${safe(photo.src)}')">
-      <span>${safe(photo.title)}</span>
-    </button>
-  `).join("");
+  grid.innerHTML = combined.slice(0, 12).map((item) => {
+    if (item.mediaType === "video") {
+      return `
+        <button class="gallery-tile video-tile" type="button" data-gallery-id="${safe(item.id)}">
+          <video src="${safe(item.src)}" muted playsinline preload="metadata"></video>
+          <span>${safe(item.title || "Video")}</span>
+        </button>
+      `;
+    }
+
+    const attr = item.isManualGalleryItem
+      ? `data-gallery-id="${safe(item.id)}"`
+      : `data-tour-id="${safe(item.tourId)}"`;
+
+    return `
+      <button class="gallery-tile" type="button" ${attr} style="background-image:url('${safe(item.src)}')">
+        <span>${safe(item.title || "Bild")}</span>
+      </button>
+    `;
+  }).join("");
 
   $$("#galleryGrid [data-tour-id]").forEach((button) => {
     button.addEventListener("click", () => openTour(button.dataset.tourId));
+  });
+
+  $$("#galleryGrid [data-gallery-id]").forEach((button) => {
+    button.addEventListener("click", () => openGalleryItem(button.dataset.galleryId));
   });
 }
 
@@ -685,6 +745,37 @@ function openChallenge(id) {
   showModal("insightModal");
 }
 
+
+function openGalleryItem(id) {
+  const item = galleryItems.find((entry) => entry.id === id);
+  if (!item) return;
+
+  const media = item.mediaType === "video"
+    ? `<video class="gallery-detail-media" src="${safe(item.url)}" controls playsinline></video>`
+    : `<img class="gallery-detail-media" src="${safe(item.url)}" alt="">`;
+
+  $("#insightContent").innerHTML = `
+    ${media}
+    <div class="insight-body">
+      <p class="eyebrow accent">GALERIE · ${safe(targetLabel(item.displayTarget))}</p>
+      <h2>${safe(item.title || "Galerie")}</h2>
+      <p class="detail-text">${safe(item.description || "")}</p>
+      ${item.tourId ? `<div class="detail-actions"><button class="primary-btn" type="button" data-open-gallery-tour="${safe(item.tourId)}">Verknüpfte Tour öffnen</button></div>` : ""}
+    </div>
+  `;
+
+  showModal("insightModal");
+
+  const tourButton = $("#insightContent [data-open-gallery-tour]");
+  if (tourButton) {
+    tourButton.addEventListener("click", () => {
+      hideModal("insightModal");
+      openTour(tourButton.dataset.openGalleryTour);
+    });
+  }
+}
+
+
 function openTour(id) {
   const tour = tours.find((item) => item.id === id);
   if (!tour) return;
@@ -769,12 +860,22 @@ function renderAdminSelectors() {
     `<option value="${safe(m.id)}">${safe(m.title)}</option>`
   )).join("");
   select.value = selected;
+
+  const galleryTourSelect = $("#galleryTourId");
+  if (galleryTourSelect) {
+    const gallerySelected = galleryTourSelect.value;
+    galleryTourSelect.innerHTML = `<option value="">Keine Tour</option>` + tours.map((tour) => (
+      `<option value="${safe(tour.id)}">${safe(tour.title)}</option>`
+    )).join("");
+    galleryTourSelect.value = gallerySelected;
+  }
 }
 
 function renderAdminLists() {
   renderAdminTourList();
   renderAdminMilestoneList();
   renderAdminChallengeList();
+  renderAdminGalleryList();
 }
 
 function renderAdminTourList() {
@@ -854,6 +955,37 @@ function renderAdminChallengeList() {
   $$("[data-edit-challenge]").forEach((button) => button.addEventListener("click", () => editChallenge(button.dataset.editChallenge)));
   $$("[data-delete-challenge]").forEach((button) => button.addEventListener("click", () => deleteChallenge(button.dataset.deleteChallenge)));
 }
+
+
+function renderAdminGalleryList() {
+  const container = $("#adminGalleryList");
+  if (!container) return;
+
+  if (!galleryItems.length) {
+    container.innerHTML = `<div class="empty-state">Noch keine Galerie-Dateien gespeichert.</div>`;
+    return;
+  }
+
+  container.innerHTML = galleryItems
+    .slice()
+    .sort((a, b) => numeric(a.order) - numeric(b.order))
+    .map((item) => `
+      <div class="admin-row">
+        <div>
+          <strong>${item.mediaType === "video" ? "🎬" : "🖼️"} ${safe(item.title || "Ohne Titel")}</strong>
+          <small>${safe(targetLabel(item.displayTarget))} · ${item.published === false ? "Entwurf" : "Öffentlich"}${item.fileName ? ` · ${safe(item.fileName)}` : ""}</small>
+        </div>
+        <div class="admin-row-actions">
+          <button class="small-btn" type="button" data-edit-gallery="${safe(item.id)}">Bearbeiten</button>
+          <button class="small-btn" type="button" data-delete-gallery="${safe(item.id)}">Löschen</button>
+        </div>
+      </div>
+    `).join("");
+
+  $$("[data-edit-gallery]").forEach((button) => button.addEventListener("click", () => editGalleryItem(button.dataset.editGallery)));
+  $$("[data-delete-gallery]").forEach((button) => button.addEventListener("click", () => deleteGalleryItem(button.dataset.deleteGallery)));
+}
+
 
 /* Admin Form Helpers */
 function resetTourForm() {
@@ -981,6 +1113,119 @@ function openAdminTab(tab) {
   $(`#${tab}Tab`).classList.remove("hidden");
 }
 
+
+function resetGalleryForm() {
+  $("#galleryForm").reset();
+  $("#galleryItemId").value = "";
+  $("#galleryFileUrl").value = "";
+  $("#galleryStoragePath").value = "";
+  $("#galleryMediaType").value = "";
+  $("#galleryPublished").checked = true;
+  $("#galleryDisplayTarget").value = "both";
+  $("#galleryStatus").textContent = "";
+  $("#galleryUploadPreview").classList.add("hidden");
+  $("#galleryUploadPreview").innerHTML = "";
+  $("#galleryUploadProgress").classList.add("hidden");
+  $("#galleryUploadBar").style.width = "0%";
+}
+
+function editGalleryItem(id) {
+  const item = galleryItems.find((entry) => entry.id === id);
+  if (!item) return;
+
+  $("#galleryItemId").value = item.id;
+  $("#galleryFileUrl").value = item.url || "";
+  $("#galleryStoragePath").value = item.storagePath || "";
+  $("#galleryMediaType").value = item.mediaType || "image";
+  $("#galleryTitle").value = item.title || "";
+  $("#galleryDisplayTarget").value = item.displayTarget || "both";
+  $("#galleryOrder").value = item.order || "";
+  $("#galleryTourId").value = item.tourId || "";
+  $("#galleryDescription").value = item.description || "";
+  $("#galleryPublished").checked = item.published !== false;
+
+  const preview = $("#galleryUploadPreview");
+  preview.classList.remove("hidden");
+  preview.innerHTML = item.mediaType === "video"
+    ? `<video src="${safe(item.url)}" controls playsinline></video>`
+    : `<img src="${safe(item.url)}" alt="">`;
+
+  openAdminTab("gallery");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function uploadGalleryFileIfNeeded() {
+  const file = $("#galleryFileInput").files?.[0];
+  const existingUrl = $("#galleryFileUrl").value;
+  const existingPath = $("#galleryStoragePath").value;
+  const existingType = $("#galleryMediaType").value;
+
+  if (!file) {
+    if (existingUrl) {
+      return {
+        url: existingUrl,
+        storagePath: existingPath,
+        mediaType: existingType || "image",
+        fileName: ""
+      };
+    }
+    throw new Error("Bitte zuerst ein Bild oder Video auswählen.");
+  }
+
+  if (!storage) throw new Error("Firebase Storage ist nicht verfügbar.");
+
+  const mediaType = mediaTypeFromFile(file);
+  const target = $("#galleryDisplayTarget").value || "both";
+  const storagePath = `gallery/${target}/${Date.now()}-${fileSafeName(file.name)}`;
+  const storageReference = ref(storage, storagePath);
+  const uploadTask = uploadBytesResumable(storageReference, file, {
+    contentType: file.type || (mediaType === "video" ? "video/mp4" : "image/jpeg")
+  });
+
+  $("#galleryUploadProgress").classList.remove("hidden");
+  $("#galleryStatus").textContent = "Upload läuft...";
+
+  await new Promise((resolve, reject) => {
+    uploadTask.on(
+      "state_changed",
+      (snapshot) => {
+        const percent = snapshot.totalBytes ? Math.round(snapshot.bytesTransferred / snapshot.totalBytes * 100) : 0;
+        $("#galleryUploadBar").style.width = `${percent}%`;
+        $("#galleryStatus").textContent = `Upload läuft... ${percent}%`;
+      },
+      reject,
+      resolve
+    );
+  });
+
+  const url = await getDownloadURL(uploadTask.snapshot.ref);
+
+  return {
+    url,
+    storagePath,
+    mediaType,
+    fileName: file.name
+  };
+}
+
+async function deleteGalleryItem(id) {
+  if (!firebaseReady) return alert("Firebase ist noch nicht konfiguriert.");
+  const item = galleryItems.find((entry) => entry.id === id);
+  if (!item) return;
+  if (!confirm("Galerie-Eintrag wirklich löschen? Die Datei wird ebenfalls aus Firebase Storage entfernt, wenn möglich.")) return;
+
+  await deleteDoc(doc(db, "galleryItems", id));
+
+  if (item.storagePath && storage) {
+    try {
+      await deleteObject(ref(storage, item.storagePath));
+    } catch (error) {
+      console.warn("Storage-Datei konnte nicht gelöscht werden:", error);
+    }
+  }
+}
+
+
 /* Event Bindings */
 function bindEvents() {
   $("#themeToggle").addEventListener("click", () => {
@@ -1073,7 +1318,7 @@ function bindEvents() {
     const payload = {
       heroTitle: $("#siteHeroTitle").value || defaultSite.heroTitle,
       heroSubtitle: $("#siteHeroSubtitle").value || defaultSite.heroSubtitle,
-      heroImage: normalizeImageUrl($("#siteHeroImage").value || defaultSite.heroImage),
+      heroImage: $("#siteHeroImage").value || defaultSite.heroImage,
       updatedAt: serverTimestamp()
     };
 
@@ -1202,6 +1447,63 @@ function bindEvents() {
     resetChallengeForm();
   });
 
+
+  $("#galleryFileInput").addEventListener("change", () => {
+    const file = $("#galleryFileInput").files?.[0];
+    const preview = $("#galleryUploadPreview");
+    if (!file) {
+      preview.classList.add("hidden");
+      preview.innerHTML = "";
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    const type = mediaTypeFromFile(file);
+    $("#galleryMediaType").value = type;
+    preview.classList.remove("hidden");
+    preview.innerHTML = type === "video"
+      ? `<video src="${objectUrl}" controls playsinline></video>`
+      : `<img src="${objectUrl}" alt="">`;
+  });
+
+  $("#galleryForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!firebaseReady) return alert("Firebase ist noch nicht konfiguriert.");
+
+    try {
+      const uploaded = await uploadGalleryFileIfNeeded();
+
+      const payload = {
+        title: $("#galleryTitle").value,
+        displayTarget: $("#galleryDisplayTarget").value,
+        order: numeric($("#galleryOrder").value),
+        tourId: $("#galleryTourId").value,
+        description: $("#galleryDescription").value,
+        published: $("#galleryPublished").checked,
+        url: uploaded.url,
+        storagePath: uploaded.storagePath,
+        mediaType: uploaded.mediaType,
+        fileName: uploaded.fileName || undefined,
+        updatedAt: serverTimestamp()
+      };
+
+      const id = $("#galleryItemId").value;
+      if (id) {
+        await updateDoc(doc(db, "galleryItems", id), payload);
+      } else {
+        await addDoc(collection(db, "galleryItems"), { ...payload, createdAt: serverTimestamp() });
+      }
+
+      $("#galleryStatus").textContent = "Galerie-Eintrag gespeichert.";
+      resetGalleryForm();
+    } catch (error) {
+      console.error(error);
+      $("#galleryStatus").textContent = error.message || "Fehler beim Speichern.";
+    }
+  });
+
+  $("#resetGalleryButton").addEventListener("click", resetGalleryForm);
+
   $("#resetChallengeButton").addEventListener("click", resetChallengeForm);
 }
 
@@ -1233,6 +1535,11 @@ function setupFirebaseListeners() {
     renderAll();
   });
 
+  onSnapshot(query(collection(db, "galleryItems"), orderBy("order", "asc")), (snapshot) => {
+    galleryItems = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+    renderAll();
+  });
+
   onSnapshot(doc(db, "site", "settings"), (snapshot) => {
     siteConfig = snapshot.exists() ? { ...defaultSite, ...snapshot.data() } : { ...defaultSite };
     renderAll();
@@ -1243,12 +1550,14 @@ function setupFirebaseListeners() {
 }
 
 function init() {
-  document.documentElement.dataset.theme = localStorage.getItem("yot-theme") || "light";
+  document.documentElement.dataset.theme = localStorage.getItem("yot-theme") || "dark";
   bindEvents();
   resetTourForm();
   resetMilestoneForm();
   resetChallengeForm();
+  resetGalleryForm();
   setupFirebaseListeners();
+  window.addEventListener("resize", () => renderGallery());
 }
 
 init();
