@@ -1220,7 +1220,7 @@ function setupFirebaseListeners() {
 }
 
 function init() {
-  document.documentElement.dataset.theme = localStorage.getItem("yot-theme") || "dark";
+  document.documentElement.dataset.theme = localStorage.getItem("yot-theme") || "light";
   bindEvents();
   resetTourForm();
   resetMilestoneForm();
