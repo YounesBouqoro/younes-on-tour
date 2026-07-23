@@ -24,7 +24,7 @@ import {
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
-const PLACEHOLDER_IMAGE = "https://github.com/YounesBouqoro/younes-on-tour/blob/bfc5c6b0f7125696f436cf37da86ba1e781bc64c/media/hero-neu.png";
+const PLACEHOLDER_IMAGE = "media/hero-neu.png";
 
 const defaultSite = {
   heroTitle: "Von Düsseldorf\nin die Welt.",
@@ -195,6 +195,29 @@ function formatKm(value) {
   return `${formatNumber(value, 1)} km`;
 }
 
+
+function normalizeImageUrl(url) {
+  const value = String(url || "").trim();
+  if (!value) return "";
+
+  // GitHub "blob" links are file preview pages, not direct image files.
+  // Example:
+  // https://github.com/YounesBouqoro/younes-on-tour/blob/main/media/hero-neu.png
+  const blobMatch = value.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)$/);
+  if (blobMatch) {
+    const [, user, repo, ref, path] = blobMatch;
+
+    // For files inside this GitHub Pages repository, the relative path is the safest option.
+    if (repo === "younes-on-tour" && path.startsWith("media/")) {
+      return path;
+    }
+
+    return `https://raw.githubusercontent.com/${user}/${repo}/${ref}/${path}`;
+  }
+
+  return value;
+}
+
 function safe(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => ({
     "&": "&amp;",
@@ -351,7 +374,7 @@ function renderAll() {
 function renderSiteConfig() {
   const title = siteConfig.heroTitle || defaultSite.heroTitle;
   const subtitle = siteConfig.heroSubtitle || defaultSite.heroSubtitle;
-  const image = siteConfig.heroImage || defaultSite.heroImage;
+  const image = normalizeImageUrl(siteConfig.heroImage || defaultSite.heroImage);
 
   $("#heroTitle").innerHTML = nl2br(title);
   $("#heroSubtitle").textContent = subtitle;
@@ -1050,7 +1073,7 @@ function bindEvents() {
     const payload = {
       heroTitle: $("#siteHeroTitle").value || defaultSite.heroTitle,
       heroSubtitle: $("#siteHeroSubtitle").value || defaultSite.heroSubtitle,
-      heroImage: $("#siteHeroImage").value || defaultSite.heroImage,
+      heroImage: normalizeImageUrl($("#siteHeroImage").value || defaultSite.heroImage),
       updatedAt: serverTimestamp()
     };
 
