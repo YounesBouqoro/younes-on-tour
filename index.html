@@ -2,163 +2,340 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#f2552c">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#070909">
   <title>Younes on Tour</title>
+  <meta name="description" content="Persönliches Adventure-Dashboard für Radfahren, Laufen, Touren, Meilensteine und Challenges.">
+  <link rel="preconnect" href="https://www.gstatic.com">
+  <link rel="preconnect" href="https://unpkg.com">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
-<header class="site-header">
-  <a class="brand" href="#home">YOUNES <span>ON TOUR</span></a>
-  <nav>
-    <a href="#touren">Touren</a>
+  <header class="site-header">
+    <a class="brand" href="#overview" aria-label="Younes on Tour Startseite">YOUNES <span>ON TOUR</span></a>
+
+    <nav class="desktop-nav" aria-label="Hauptnavigation">
+      <a href="#overview" class="nav-link active">Übersicht</a>
+      <a href="#tours" class="nav-link">Touren</a>
+      <a href="#challenges" class="nav-link">Challenges</a>
+      <a href="#roadmap" class="nav-link">Roadmap</a>
+      <a href="#gallery" class="nav-link">Galerie</a>
+    </nav>
+
+    <div class="header-actions">
+      <button id="themeToggle" class="round-btn" type="button" aria-label="Design wechseln">◐</button>
+      <button id="loginButton" class="profile-btn" type="button">Login</button>
+      <button id="menuButton" class="menu-btn" type="button" aria-label="Menü öffnen">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <aside id="mobileMenu" class="mobile-menu hidden" aria-label="Mobiles Menü">
+    <button class="menu-close" type="button" data-close="mobileMenu">×</button>
+    <a href="#overview">Übersicht</a>
+    <a href="#tours">Touren</a>
     <a href="#challenges">Challenges</a>
-    <button id="themeToggle" class="icon-btn">◐</button>
-    <button id="loginBtn" class="pill secondary">Login</button>
+    <a href="#roadmap">Roadmap</a>
+    <a href="#gallery">Galerie</a>
+  </aside>
+
+  <main>
+    <section id="overview" class="hero-section">
+      <div class="hero-bg" id="heroBg"></div>
+      <div class="hero-fade"></div>
+
+      <div class="hero-layout">
+        <div class="hero-copy">
+          <p class="eyebrow">BIKE · RUN · ADVENTURE</p>
+          <h1 id="heroTitle">Von Düsseldorf<br>in die Welt.</h1>
+          <p id="heroSubtitle">Jede Tour ist ein neuer Meilenstein. Hier sieht man direkt, was schon geschafft ist und was als Nächstes kommt.</p>
+        </div>
+
+        <div class="hero-stats" aria-label="Gesamtstatistiken">
+          <button class="stat-card" type="button" data-insight="bike">
+            <span class="stat-icon">🚴</span>
+            <span class="stat-label">Gesamt mit dem Rad</span>
+            <strong id="bikeTotal">0,0 km</strong>
+            <small id="bikeMeta">0 Touren</small>
+          </button>
+
+          <button class="stat-card" type="button" data-insight="run">
+            <span class="stat-icon">🏃</span>
+            <span class="stat-label">Gesamt zu Fuß</span>
+            <strong id="runTotal">0,0 km</strong>
+            <small id="runMeta">0 Läufe</small>
+          </button>
+
+          <button class="stat-card" type="button" data-insight="adventures">
+            <span class="stat-icon">⛰️</span>
+            <span class="stat-label">Abenteuer</span>
+            <strong id="adventureTotal">0</strong>
+            <small>veröffentlichte Einträge</small>
+          </button>
+        </div>
+
+        <section id="roadmap" class="roadmap-panel">
+          <div class="roadmap-head">
+            <div>
+              <p class="eyebrow">MEINE ROADMAP</p>
+              <h2>Meilensteine</h2>
+            </div>
+            <button id="roadmapInsightButton" class="tiny-link" type="button">Details ansehen →</button>
+          </div>
+
+          <div id="milestoneRail" class="milestone-rail" aria-label="Meilensteine"></div>
+
+          <div class="progress-box">
+            <div class="progress-row">
+              <strong>Gesamtfortschritt</strong>
+              <span id="roadmapPercent">0%</span>
+            </div>
+            <div class="progress-track">
+              <span id="roadmapProgress"></span>
+            </div>
+            <div class="roadmap-meta">
+              <span id="roadmapCountMeta">0 / 0 Meilensteine erreicht</span>
+              <span id="roadmapDistanceMeta">0 km von 0 km</span>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section id="tours" class="content-section">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow accent">NEUESTE TOUREN</p>
+          <h2>Touren & Geschichten</h2>
+        </div>
+        <div class="segmented" id="tourFilter">
+          <button type="button" class="active" data-filter="all">Alle</button>
+          <button type="button" data-filter="bike">Rad</button>
+          <button type="button" data-filter="run">Laufen</button>
+        </div>
+      </div>
+      <div id="tourGrid" class="tour-grid"></div>
+    </section>
+
+    <section id="challenges" class="content-section split-section">
+      <div>
+        <div class="section-head compact">
+          <div>
+            <p class="eyebrow accent">AKTUELLE CHALLENGES</p>
+            <h2>Challenges</h2>
+          </div>
+        </div>
+        <div id="challengeGrid" class="challenge-grid"></div>
+      </div>
+
+      <div id="gallery" class="gallery-panel">
+        <div class="section-head compact">
+          <div>
+            <p class="eyebrow accent">GALERIE</p>
+            <h2>Momente</h2>
+          </div>
+        </div>
+        <div id="galleryGrid" class="gallery-grid"></div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="mobile-bottom-nav" aria-label="Mobile Navigation">
+    <a href="#overview" class="active">⌂<span>Home</span></a>
+    <a href="#tours">🚴<span>Touren</span></a>
+    <a href="#challenges">🏆<span>Challenges</span></a>
+    <a href="#roadmap">🗺️<span>Roadmap</span></a>
+    <button id="mobileLoginButton" type="button">◉<span>Profil</span></button>
   </nav>
-</header>
 
-<main>
-  <section id="home" class="hero">
-    <div class="hero-overlay"></div>
-    <div class="hero-shell">
-      <div class="hero-copy">
-        <p class="eyebrow">BIKE · RUN · ADVENTURE</p>
-        <h1>Von Düsseldorf<br>in die Welt.</h1>
-        <p>Jede Tour ist ein neuer Meilenstein. Hier sieht man direkt, was schon geschafft ist und was als Nächstes kommt.</p>
-      </div>
+  <footer class="site-footer">
+    <strong>YOUNES ON TOUR</strong>
+    <span>Gebaut für Kilometer, Erinnerungen und die nächste Challenge.</span>
+  </footer>
 
-      <div class="achievement-panel">
-        <div class="achievement-top">
-          <div>
-            <span class="metric-label">GESAMT MIT DEM RAD</span>
-            <strong id="heroBikeKm">0 km</strong>
-          </div>
-          <div>
-            <span class="metric-label">GESAMT ZU FUSS</span>
-            <strong id="heroRunKm">0 km</strong>
-          </div>
-          <div>
-            <span class="metric-label">ABENTEUER</span>
-            <strong id="heroTourCount">0</strong>
-          </div>
-        </div>
-
-        <div class="milestone-heading">
-          <div>
-            <span class="metric-label">MEINE ROADMAP</span>
-            <h2>Meilensteine</h2>
-          </div>
-          <strong id="milestoneFraction">1 / 5</strong>
-        </div>
-
-        <div id="heroMilestones" class="hero-milestones"></div>
-
-        <div class="hero-progress">
-          <div class="progress-top">
-            <span>Gesamtfortschritt</span>
-            <strong id="heroProgressPercent">20%</strong>
-          </div>
-          <div class="progress-track"><span id="heroProgressBar"></span></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section id="touren" class="section">
-    <div class="section-header">
-      <div><p class="eyebrow accent">ABENTEUER</p><h2>Touren & Geschichten</h2></div>
-      <div id="tourFilters" class="segmented">
-        <button data-filter="all" class="active">Alle</button>
-        <button data-filter="bike">Rad</button>
-        <button data-filter="run">Laufen</button>
-      </div>
-    </div>
-    <div id="tourGrid" class="tour-grid"></div>
-  </section>
-
-  <section id="challenges" class="section alt-section">
-    <div class="section-header">
-      <div><p class="eyebrow accent">ROADMAP</p><h2>Die nächsten Ziele</h2></div>
-    </div>
-    <div id="challengeGrid" class="challenge-grid"></div>
-  </section>
-</main>
-
-<footer><strong>YOUNES ON TOUR</strong><span>Gebaut für Kilometer, Erinnerungen und die nächste Challenge.</span></footer>
-
-<div id="tourModal" class="modal-backdrop hidden">
-  <article class="tour-modal">
-    <button class="modal-close" data-close="tourModal">×</button>
-    <div id="tourDetail"></div>
-  </article>
-</div>
-
-<div id="loginModal" class="modal-backdrop hidden">
-  <form id="loginForm" class="login-card">
-    <button type="button" class="modal-close" data-close="loginModal">×</button>
-    <p class="eyebrow accent">ADMIN</p><h2>Einloggen</h2>
-    <label>E-Mail<input id="loginEmail" type="email" required></label>
-    <label>Passwort<input id="loginPassword" type="password" required></label>
-    <p id="loginError" class="error"></p>
-    <button class="pill primary" type="submit">Einloggen</button>
-  </form>
-</div>
-
-<div id="adminPanel" class="admin-panel hidden">
-  <div class="admin-shell">
-    <div class="admin-top">
-      <div><p class="eyebrow accent">ADMIN</p><h2>Inhalte verwalten</h2></div>
-      <div><button id="logoutBtn" class="pill secondary">Logout</button><button id="closeAdminBtn" class="pill primary">Website</button></div>
-    </div>
-
-    <div class="admin-tabs">
-      <button data-tab="tours" class="active">Touren</button>
-      <button data-tab="milestones">Meilensteine</button>
-    </div>
-
-    <section id="adminToursTab">
-      <form id="tourForm" class="admin-form">
-        <input id="tourId" type="hidden">
-        <label>Titel<input id="title" required></label>
-        <label>Sportart<select id="type"><option value="bike">Radfahren</option><option value="run">Laufen</option></select></label>
-        <label>Datum<input id="date" type="date" required></label>
-        <label>Route<input id="route" required></label>
-        <label>Distanz (km)<input id="distance" type="number" step="0.01" required></label>
-        <label>Dauer<input id="duration"></label>
-        <label>Ø Tempo / Pace<input id="speed"></label>
-        <label>Höhenmeter<input id="elevation" type="number"></label>
-        <label>Ø Puls<input id="heartRate" type="number"></label>
-        <label class="wide">Titelbild-URL<input id="coverUrl"></label>
-        <label class="wide">Galerie-URLs<textarea id="galleryUrls" rows="4" placeholder="Eine URL pro Zeile"></textarea></label>
-        <label class="wide">Strava-/Komoot-Link<input id="activityUrl"></label>
-        <label class="wide">GPX-Link<input id="gpxUrl"></label>
-        <label class="wide">Tourbericht<textarea id="story" rows="7" required></textarea></label>
-        <label class="wide">Fazit / Learnings<textarea id="learnings" rows="4"></textarea></label>
-        <label class="check wide"><input id="published" type="checkbox" checked> Öffentlich</label>
-        <div class="wide actions"><button class="pill primary">Speichern</button><button id="resetTourBtn" type="button" class="pill secondary">Leeren</button></div>
-        <p id="tourStatus" class="wide"></p>
-      </form>
-      <div id="adminTourList" class="admin-list"></div>
-    </section>
-
-    <section id="adminMilestonesTab" class="hidden">
-      <form id="milestoneForm" class="admin-form">
-        <input id="milestoneId" type="hidden">
-        <label>Ziel<input id="milestoneTitle" required></label>
-        <label>Symbol / Wahrzeichen<input id="milestoneIcon" placeholder="z. B. ⛪, 🏰, 🗼"></label>
-        <label>Reihenfolge<input id="milestoneOrder" type="number" required></label>
-        <label>Status<select id="milestoneCompleted"><option value="false">Geplant</option><option value="true">Erledigt</option></select></label>
-        <label class="wide">Untertitel<input id="milestoneSubtitle" placeholder="z. B. Erste Auslandstour"></label>
-        <div class="wide actions"><button class="pill primary">Speichern</button><button id="resetMilestoneBtn" type="button" class="pill secondary">Leeren</button></div>
-        <p id="milestoneStatus" class="wide"></p>
-      </form>
-      <div id="adminMilestoneList" class="admin-list"></div>
-    </section>
+  <div id="insightModal" class="modal-backdrop hidden">
+    <article class="modal-card">
+      <button class="modal-close" type="button" data-close="insightModal">×</button>
+      <div id="insightContent"></div>
+    </article>
   </div>
-</div>
 
-<script type="module" src="app.js"></script>
+  <div id="tourModal" class="modal-backdrop hidden">
+    <article class="modal-card wide-modal">
+      <button class="modal-close" type="button" data-close="tourModal">×</button>
+      <div id="tourDetail"></div>
+    </article>
+  </div>
+
+  <div id="loginModal" class="modal-backdrop hidden">
+    <form id="loginForm" class="login-card">
+      <button class="modal-close" type="button" data-close="loginModal">×</button>
+      <p class="eyebrow accent">ADMIN</p>
+      <h2>Einloggen</h2>
+      <label>E-Mail<input id="loginEmail" type="email" autocomplete="email" required></label>
+      <label>Passwort<input id="loginPassword" type="password" autocomplete="current-password" required></label>
+      <p id="loginError" class="error"></p>
+      <button class="primary-btn" type="submit">Einloggen</button>
+    </form>
+  </div>
+
+  <section id="adminPanel" class="admin-panel hidden" aria-label="Adminbereich">
+    <div class="admin-shell">
+      <div class="admin-top">
+        <div>
+          <p class="eyebrow accent">ADMIN</p>
+          <h2>Dashboard bearbeiten</h2>
+        </div>
+        <div class="admin-actions">
+          <button id="logoutButton" class="secondary-btn" type="button">Logout</button>
+          <button id="closeAdminButton" class="primary-btn" type="button">Website ansehen</button>
+        </div>
+      </div>
+
+      <div class="admin-tabs" id="adminTabs">
+        <button class="active" type="button" data-tab="site">Startseite</button>
+        <button type="button" data-tab="tours">Touren</button>
+        <button type="button" data-tab="milestones">Meilensteine</button>
+        <button type="button" data-tab="challenges">Challenges</button>
+      </div>
+
+      <div id="siteTab" class="admin-tab-content">
+        <form id="siteForm" class="admin-form">
+          <label class="wide">Hero-Titel
+            <input id="siteHeroTitle" placeholder="Von Düsseldorf&#10;in die Welt.">
+          </label>
+          <label class="wide">Hero-Untertext
+            <textarea id="siteHeroSubtitle" rows="4"></textarea>
+          </label>
+          <label class="wide">Hero-Bild-URL
+            <input id="siteHeroImage" placeholder="https://...">
+          </label>
+          <div class="wide admin-form-actions">
+            <button class="primary-btn" type="submit">Startseite speichern</button>
+          </div>
+          <p id="siteStatus" class="wide status"></p>
+        </form>
+      </div>
+
+      <div id="toursTab" class="admin-tab-content hidden">
+        <form id="tourForm" class="admin-form">
+          <input id="tourId" type="hidden">
+          <label>Titel<input id="tourTitle" required></label>
+          <label>Sportart
+            <select id="tourType">
+              <option value="bike">Radfahren</option>
+              <option value="run">Laufen</option>
+            </select>
+          </label>
+          <label>Datum<input id="tourDate" type="date" required></label>
+          <label>Route<input id="tourRoute" required></label>
+          <label>Distanz in km<input id="tourDistance" type="number" step="0.01" required></label>
+          <label>Dauer<input id="tourDuration" placeholder="z. B. 4:12 h"></label>
+          <label>Ø Tempo / Pace<input id="tourSpeed" placeholder="z. B. 24,3 km/h"></label>
+          <label>Höhenmeter<input id="tourElevation" type="number"></label>
+          <label>Ø Puls<input id="tourHeartRate" type="number"></label>
+          <label>Meilenstein
+            <select id="tourMilestoneId">
+              <option value="">Keinem Meilenstein zuordnen</option>
+            </select>
+          </label>
+          <label class="wide">Titelbild-URL<input id="tourCoverUrl"></label>
+          <label class="wide">Galerie-URLs<textarea id="tourGalleryUrls" rows="4" placeholder="Eine URL pro Zeile"></textarea></label>
+          <label class="wide">Strava-/Komoot-Link<input id="tourActivityUrl"></label>
+          <label class="wide">YouTube-/Video-Link<input id="tourVideoUrl"></label>
+          <label class="wide">GPX-Link<input id="tourGpxUrl"></label>
+          <label class="wide">Tourbericht<textarea id="tourStory" rows="7" required></textarea></label>
+          <label class="wide">Fazit / Learnings<textarea id="tourLearnings" rows="4"></textarea></label>
+          <label class="check wide"><input id="tourPublished" type="checkbox" checked> Öffentlich anzeigen</label>
+          <div class="wide admin-form-actions">
+            <button class="primary-btn" type="submit">Tour speichern</button>
+            <button id="resetTourButton" class="secondary-btn" type="button">Leeren</button>
+          </div>
+          <p id="tourStatus" class="wide status"></p>
+        </form>
+        <div id="adminTourList" class="admin-list"></div>
+      </div>
+
+      <div id="milestonesTab" class="admin-tab-content hidden">
+        <div class="hint-card">
+          <strong>Meilensteine steuern den Fortschrittsbalken.</strong>
+          <span>Der Balken berechnet sich automatisch aus erledigten Meilensteinen. Wenn Distanzen gepflegt sind, wird zusätzlich „km erreicht von geplant“ angezeigt.</span>
+          <button id="seedMilestonesButton" class="secondary-btn" type="button">Standard-Meilensteine anlegen</button>
+        </div>
+
+        <form id="milestoneForm" class="admin-form">
+          <input id="milestoneId" type="hidden">
+          <label>Titel<input id="milestoneTitle" required placeholder="Venlo"></label>
+          <label>Wahrzeichen / Emoji<input id="milestoneIcon" placeholder="⛪"></label>
+          <label class="wide">Wahrzeichen-Bild-URL optional<input id="milestoneImageUrl" placeholder="https://..."></label>
+          <label>Reihenfolge<input id="milestoneOrder" type="number" required></label>
+          <label>Status
+            <select id="milestoneCompleted">
+              <option value="false">Geplant</option>
+              <option value="true">Erledigt</option>
+            </select>
+          </label>
+          <label>Geplante Distanz km<input id="milestoneTargetDistance" type="number" step="0.01"></label>
+          <label>Erreichte Distanz km<input id="milestoneActualDistance" type="number" step="0.01"></label>
+          <label>Datum erledigt<input id="milestoneCompletedDate" type="date"></label>
+          <label>Dauer<input id="milestoneDuration" placeholder="z. B. 4:12 h"></label>
+          <label>Ø Tempo<input id="milestoneSpeed" placeholder="z. B. 24,3 km/h"></label>
+          <label>Höhenmeter<input id="milestoneElevation" type="number"></label>
+          <label class="wide">Route<input id="milestoneRoute" placeholder="Düsseldorf → Venlo"></label>
+          <label class="wide">Kurzbeschreibung<input id="milestoneSubtitle" placeholder="Erste Auslandstour"></label>
+          <label class="wide">Streckeninfos / Bericht<textarea id="milestoneStory" rows="6"></textarea></label>
+          <label class="wide">Titelbild-URL<input id="milestoneCoverUrl"></label>
+          <label class="wide">GPX-Link<input id="milestoneGpxUrl"></label>
+          <label class="wide">Strava-/Komoot-Link<input id="milestoneActivityUrl"></label>
+          <div class="wide admin-form-actions">
+            <button class="primary-btn" type="submit">Meilenstein speichern</button>
+            <button id="resetMilestoneButton" class="secondary-btn" type="button">Leeren</button>
+          </div>
+          <p id="milestoneStatus" class="wide status"></p>
+        </form>
+        <div id="adminMilestoneList" class="admin-list"></div>
+      </div>
+
+      <div id="challengesTab" class="admin-tab-content hidden">
+        <div class="hint-card">
+          <strong>Challenges können automatisch oder manuell laufen.</strong>
+          <span>Beispiel: „500 km Rad im Jahr“ nutzt automatisch deine Radkilometer. „5 Touren im Monat“ kannst du aktuell manuell pflegen.</span>
+        </div>
+
+        <form id="challengeForm" class="admin-form">
+          <input id="challengeId" type="hidden">
+          <label>Titel<input id="challengeTitle" required></label>
+          <label>Icon<input id="challengeIcon" placeholder="🏆"></label>
+          <label>Reihenfolge<input id="challengeOrder" type="number"></label>
+          <label>Modus
+            <select id="challengeMode">
+              <option value="manual">Manuell</option>
+              <option value="bikeKm">Automatisch: Radkilometer gesamt</option>
+              <option value="runKm">Automatisch: Laufkilometer gesamt</option>
+              <option value="totalKm">Automatisch: alle Kilometer</option>
+              <option value="tourCount">Automatisch: Anzahl Touren</option>
+              <option value="completedMilestones">Automatisch: erledigte Meilensteine</option>
+            </select>
+          </label>
+          <label>Zielwert<input id="challengeTarget" type="number" step="0.01" required></label>
+          <label>Aktueller Wert bei manuell<input id="challengeCurrent" type="number" step="0.01"></label>
+          <label class="wide">Beschreibung<textarea id="challengeDescription" rows="4"></textarea></label>
+          <label class="check wide"><input id="challengePublished" type="checkbox" checked> Öffentlich anzeigen</label>
+          <div class="wide admin-form-actions">
+            <button class="primary-btn" type="submit">Challenge speichern</button>
+            <button id="resetChallengeButton" class="secondary-btn" type="button">Leeren</button>
+          </div>
+          <p id="challengeStatus" class="wide status"></p>
+        </form>
+        <div id="adminChallengeList" class="admin-list"></div>
+      </div>
+    </div>
+  </section>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

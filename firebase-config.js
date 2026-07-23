@@ -1,9 +1,13 @@
+// Deine bestehenden Firebase-Werte hier eintragen.
+// Wenn du schon eine funktionierende firebase-config.js hast, kannst du diese Datei einfach damit ersetzen.
+
 export const firebaseConfig = {
-  apiKey: "AIzaSyCYyOy0-M45UmrN4D3mo_KGwjK7aH4F2hU",
-  authDomain: "younes-on-tour.firebaseapp.com",
-  projectId: "younes-on-tour",
-  storageBucket: "younes-on-tour.firebasestorage.app",
-  messagingSenderId: "579483034829",
-  appId: "1:579483034829:web:3d02adb17d69297056b584"
+  apiKey: "DEIN_API_KEY",
+  authDomain: "DEIN_PROJEKT.firebaseapp.com",
+  projectId: "DEIN_PROJEKT",
+  storageBucket: "DEIN_PROJEKT.firebasestorage.app",
+  messagingSenderId: "DEINE_SENDER_ID",
+  appId: "DEINE_APP_ID"
 };
-export const ADMIN_EMAIL = "younesbouqoro@gmail.com";
+
+export const ADMIN_EMAIL = "DEINE_EMAIL@BEISPIEL.DE";
