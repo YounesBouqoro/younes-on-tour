@@ -20,18 +20,11 @@ import {
   orderBy,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
-import {
-  getStorage,
-  ref,
-  uploadBytesResumable,
-  getDownloadURL,
-  deleteObject
-} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-storage.js";
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
-const PLACEHOLDER_IMAGE = "https://images.unsplash.com/photo-1529422643029-d4585747aaf2?auto=format&fit=crop&w=1800&q=80";
+const PLACEHOLDER_IMAGE = "media/hero-neu.png";
 
 const defaultSite = {
   heroTitle: "Von Düsseldorf\nin die Welt.",
@@ -163,7 +156,6 @@ const demoChallenges = [
 let firebaseReady = false;
 let auth = null;
 let db = null;
-let storage = null;
 let currentUser = null;
 let tours = [];
 let milestones = [];
@@ -185,7 +177,6 @@ if (isConfigured) {
   const app = initializeApp(firebaseConfig);
   auth = getAuth(app);
   db = getFirestore(app);
-  storage = getStorage(app);
   firebaseReady = true;
 } else {
   console.warn("Firebase ist noch nicht konfiguriert. Die Seite läuft im Demo-Modus.");
@@ -298,7 +289,19 @@ function calculateStats() {
   const tourBikeKm = bikeTours.reduce((sum, tour) => sum + numeric(tour.distance), 0);
   const tourRunKm = runTours.reduce((sum, tour) => sum + numeric(tour.distance), 0);
 
-  const countableMilestones = allMilestones().filter((m) => m.completed && m.countInStats !== false);
+  // Wichtig: Wenn eine Tour mit einem Meilenstein verknüpft ist, werden die Kilometer nur über die Tour gezählt.
+  // Der Meilenstein bleibt für Roadmap/Fortschritt sichtbar, wird aber nicht zusätzlich in Gesamt-KM und Abenteuer gezählt.
+  const linkedMilestoneIds = new Set(
+    list
+      .map((tour) => String(tour.milestoneId || "").trim())
+      .filter(Boolean)
+  );
+
+  const standaloneCompletedMilestones = allMilestones().filter((m) => (
+    m.completed && !linkedMilestoneIds.has(String(m.id))
+  ));
+
+  const countableMilestones = standaloneCompletedMilestones.filter((m) => m.countInStats !== false);
   const bikeMilestones = countableMilestones.filter((m) => (m.sportType || "bike") === "bike");
   const runMilestones = countableMilestones.filter((m) => (m.sportType || "bike") === "run");
 
@@ -309,7 +312,7 @@ function calculateStats() {
   const runKm = tourRunKm + milestoneRunKm;
   const totalKm = bikeKm + runKm;
 
-  const adventureMilestones = allMilestones().filter((m) => m.completed && m.countAsAdventure !== false);
+  const adventureMilestones = standaloneCompletedMilestones.filter((m) => m.countAsAdventure !== false);
   const count = list.length + adventureMilestones.length;
 
   const longest = Math.max(0, ...list.map((tour) => numeric(tour.distance)), ...countableMilestones.map((m) => numeric(m.actualDistance || m.distance || m.targetDistance)));
@@ -331,6 +334,7 @@ function calculateStats() {
     bikeMilestones,
     runMilestones,
     adventureMilestones,
+    linkedMilestoneIds,
     count,
     longest,
     longestBike,
@@ -672,6 +676,7 @@ function openMilestone(id) {
   if (!milestone) return;
 
   const relatedTours = publishedTours().filter((tour) => tour.milestoneId === id);
+  const isLinkedToPublishedTour = relatedTours.length > 0;
   const image = milestone.coverUrl || relatedTours[0]?.coverUrl || PLACEHOLDER_IMAGE;
   const distance = numeric(milestone.actualDistance || milestone.targetDistance || milestone.distance);
   const status = milestone.completed ? "Erledigt" : "Geplant";
@@ -693,8 +698,8 @@ function openMilestone(id) {
         <div class="insight-metric"><span>Dauer</span><strong>${safe(milestone.duration || "–")}</strong></div>
         <div class="insight-metric"><span>Ø Tempo</span><strong>${safe(milestone.speed || "–")}</strong></div>
         <div class="insight-metric"><span>Höhenmeter</span><strong>${numeric(milestone.elevation)} m</strong></div>
-        <div class="insight-metric"><span>Zählt in Gesamt-KM</span><strong>${milestone.countInStats !== false ? "Ja" : "Nein"}</strong></div>
-        <div class="insight-metric"><span>Zählt als Abenteuer</span><strong>${milestone.countAsAdventure !== false ? "Ja" : "Nein"}</strong></div>
+        <div class="insight-metric"><span>Zählt in Gesamt-KM</span><strong>${isLinkedToPublishedTour ? "Über Tour gezählt" : (milestone.countInStats !== false ? "Ja" : "Nein")}</strong></div>
+        <div class="insight-metric"><span>Zählt als Abenteuer</span><strong>${isLinkedToPublishedTour ? "Über Tour gezählt" : (milestone.countAsAdventure !== false ? "Ja" : "Nein")}</strong></div>
       </div>
       <p class="detail-text">${safe(milestone.story || milestone.subtitle || "Noch keine Streckeninfos gepflegt.")}</p>
       ${relatedTours.length ? `
@@ -973,7 +978,7 @@ function renderAdminGalleryList() {
       <div class="admin-row">
         <div>
           <strong>${item.mediaType === "video" ? "🎬" : "🖼️"} ${safe(item.title || "Ohne Titel")}</strong>
-          <small>${safe(targetLabel(item.displayTarget))} · ${item.published === false ? "Entwurf" : "Öffentlich"}${item.fileName ? ` · ${safe(item.fileName)}` : ""}</small>
+          <small>${safe(targetLabel(item.displayTarget))} · ${item.published === false ? "Entwurf" : "Öffentlich"}${item.url ? ` · ${safe(item.url)}` : ""}</small>
         </div>
         <div class="admin-row-actions">
           <button class="small-btn" type="button" data-edit-gallery="${safe(item.id)}">Bearbeiten</button>
@@ -1117,16 +1122,30 @@ function openAdminTab(tab) {
 function resetGalleryForm() {
   $("#galleryForm").reset();
   $("#galleryItemId").value = "";
-  $("#galleryFileUrl").value = "";
-  $("#galleryStoragePath").value = "";
-  $("#galleryMediaType").value = "";
   $("#galleryPublished").checked = true;
   $("#galleryDisplayTarget").value = "both";
+  $("#galleryMediaType").value = "image";
   $("#galleryStatus").textContent = "";
-  $("#galleryUploadPreview").classList.add("hidden");
-  $("#galleryUploadPreview").innerHTML = "";
-  $("#galleryUploadProgress").classList.add("hidden");
-  $("#galleryUploadBar").style.width = "0%";
+  renderGalleryLinkPreview();
+}
+
+function renderGalleryLinkPreview() {
+  const preview = $("#galleryUploadPreview");
+  if (!preview) return;
+
+  const url = String($("#galleryMediaUrl")?.value || "").trim();
+  const type = $("#galleryMediaType")?.value || "image";
+
+  if (!url) {
+    preview.classList.add("hidden");
+    preview.innerHTML = "";
+    return;
+  }
+
+  preview.classList.remove("hidden");
+  preview.innerHTML = type === "video"
+    ? `<video src="${safe(url)}" controls playsinline></video>`
+    : `<img src="${safe(url)}" alt="">`;
 }
 
 function editGalleryItem(id) {
@@ -1134,95 +1153,24 @@ function editGalleryItem(id) {
   if (!item) return;
 
   $("#galleryItemId").value = item.id;
-  $("#galleryFileUrl").value = item.url || "";
-  $("#galleryStoragePath").value = item.storagePath || "";
-  $("#galleryMediaType").value = item.mediaType || "image";
   $("#galleryTitle").value = item.title || "";
   $("#galleryDisplayTarget").value = item.displayTarget || "both";
+  $("#galleryMediaType").value = item.mediaType || "image";
   $("#galleryOrder").value = item.order || "";
   $("#galleryTourId").value = item.tourId || "";
+  $("#galleryMediaUrl").value = item.url || "";
   $("#galleryDescription").value = item.description || "";
   $("#galleryPublished").checked = item.published !== false;
 
-  const preview = $("#galleryUploadPreview");
-  preview.classList.remove("hidden");
-  preview.innerHTML = item.mediaType === "video"
-    ? `<video src="${safe(item.url)}" controls playsinline></video>`
-    : `<img src="${safe(item.url)}" alt="">`;
-
+  renderGalleryLinkPreview();
   openAdminTab("gallery");
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-async function uploadGalleryFileIfNeeded() {
-  const file = $("#galleryFileInput").files?.[0];
-  const existingUrl = $("#galleryFileUrl").value;
-  const existingPath = $("#galleryStoragePath").value;
-  const existingType = $("#galleryMediaType").value;
-
-  if (!file) {
-    if (existingUrl) {
-      return {
-        url: existingUrl,
-        storagePath: existingPath,
-        mediaType: existingType || "image",
-        fileName: ""
-      };
-    }
-    throw new Error("Bitte zuerst ein Bild oder Video auswählen.");
-  }
-
-  if (!storage) throw new Error("Firebase Storage ist nicht verfügbar.");
-
-  const mediaType = mediaTypeFromFile(file);
-  const target = $("#galleryDisplayTarget").value || "both";
-  const storagePath = `gallery/${target}/${Date.now()}-${fileSafeName(file.name)}`;
-  const storageReference = ref(storage, storagePath);
-  const uploadTask = uploadBytesResumable(storageReference, file, {
-    contentType: file.type || (mediaType === "video" ? "video/mp4" : "image/jpeg")
-  });
-
-  $("#galleryUploadProgress").classList.remove("hidden");
-  $("#galleryStatus").textContent = "Upload läuft...";
-
-  await new Promise((resolve, reject) => {
-    uploadTask.on(
-      "state_changed",
-      (snapshot) => {
-        const percent = snapshot.totalBytes ? Math.round(snapshot.bytesTransferred / snapshot.totalBytes * 100) : 0;
-        $("#galleryUploadBar").style.width = `${percent}%`;
-        $("#galleryStatus").textContent = `Upload läuft... ${percent}%`;
-      },
-      reject,
-      resolve
-    );
-  });
-
-  const url = await getDownloadURL(uploadTask.snapshot.ref);
-
-  return {
-    url,
-    storagePath,
-    mediaType,
-    fileName: file.name
-  };
-}
-
 async function deleteGalleryItem(id) {
   if (!firebaseReady) return alert("Firebase ist noch nicht konfiguriert.");
-  const item = galleryItems.find((entry) => entry.id === id);
-  if (!item) return;
-  if (!confirm("Galerie-Eintrag wirklich löschen? Die Datei wird ebenfalls aus Firebase Storage entfernt, wenn möglich.")) return;
-
+  if (!confirm("Galerie-Eintrag wirklich löschen? Die Datei in GitHub bleibt erhalten.")) return;
   await deleteDoc(doc(db, "galleryItems", id));
-
-  if (item.storagePath && storage) {
-    try {
-      await deleteObject(ref(storage, item.storagePath));
-    } catch (error) {
-      console.warn("Storage-Datei konnte nicht gelöscht werden:", error);
-    }
-  }
 }
 
 
@@ -1448,42 +1396,30 @@ function bindEvents() {
   });
 
 
-  $("#galleryFileInput").addEventListener("change", () => {
-    const file = $("#galleryFileInput").files?.[0];
-    const preview = $("#galleryUploadPreview");
-    if (!file) {
-      preview.classList.add("hidden");
-      preview.innerHTML = "";
-      return;
-    }
-
-    const objectUrl = URL.createObjectURL(file);
-    const type = mediaTypeFromFile(file);
-    $("#galleryMediaType").value = type;
-    preview.classList.remove("hidden");
-    preview.innerHTML = type === "video"
-      ? `<video src="${objectUrl}" controls playsinline></video>`
-      : `<img src="${objectUrl}" alt="">`;
-  });
+  $("#galleryMediaUrl").addEventListener("input", renderGalleryLinkPreview);
+  $("#galleryMediaType").addEventListener("change", renderGalleryLinkPreview);
 
   $("#galleryForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!firebaseReady) return alert("Firebase ist noch nicht konfiguriert.");
 
-    try {
-      const uploaded = await uploadGalleryFileIfNeeded();
+    const mediaUrl = String($("#galleryMediaUrl").value || "").trim();
 
+    if (!mediaUrl) {
+      $("#galleryStatus").textContent = "Bitte zuerst einen Medien-Link eintragen.";
+      return;
+    }
+
+    try {
       const payload = {
         title: $("#galleryTitle").value,
         displayTarget: $("#galleryDisplayTarget").value,
+        mediaType: $("#galleryMediaType").value,
         order: numeric($("#galleryOrder").value),
         tourId: $("#galleryTourId").value,
         description: $("#galleryDescription").value,
         published: $("#galleryPublished").checked,
-        url: uploaded.url,
-        storagePath: uploaded.storagePath,
-        mediaType: uploaded.mediaType,
-        fileName: uploaded.fileName || undefined,
+        url: mediaUrl,
         updatedAt: serverTimestamp()
       };
 
@@ -1550,7 +1486,7 @@ function setupFirebaseListeners() {
 }
 
 function init() {
-  document.documentElement.dataset.theme = localStorage.getItem("yot-theme") || "dark";
+  document.documentElement.dataset.theme = localStorage.getItem("yot-theme") || "light";
   bindEvents();
   resetTourForm();
   resetMilestoneForm();
