@@ -6,7 +6,8 @@ export const firebaseConfig = {
   projectId: "younes-on-tour",
   storageBucket: "younes-on-tour.firebasestorage.app",
   messagingSenderId: "579483034829",
-  appId: "1:579483034829:web:3d02adb17d69297056b584"
+  appId: "1:579483034829:web:3d02adb17d69297056b584",
+  measurementId: "G-9VNGJ5GEJ8"
 };
 
 // Nur diese E-Mail darf Touren erstellen, ändern oder löschen.
