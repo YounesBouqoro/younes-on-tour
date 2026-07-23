@@ -194,6 +194,8 @@ button{cursor:pointer}
   font-size:clamp(58px,7.4vw,118px);
   line-height:.89;
   letter-spacing:-.075em;
+  color:#fff;
+  text-shadow:0 8px 35px rgba(0,0,0,.45);
 }
 .hero-copy p:last-child{
   max-width:650px;
