@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://www.gstatic.com">
   <link rel="preconnect" href="https://unpkg.com">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="styles.css?v=2.1">
+  <link rel="stylesheet" href="styles.css?v=2.2">
 </head>
 
 <body>
@@ -83,7 +83,14 @@
               <p class="eyebrow">MEINE ROADMAP</p>
               <h2>Meilensteine</h2>
             </div>
-            <button id="roadmapInsightButton" class="tiny-link" type="button">Details ansehen →</button>
+            <div class="roadmap-controls">
+              <div id="milestoneFilter" class="mini-segmented" aria-label="Meilenstein-Filter">
+                <button class="active" type="button" data-filter="all">Alle</button>
+                <button type="button" data-filter="bike">Rad</button>
+                <button type="button" data-filter="run">Laufen</button>
+              </div>
+              <button id="roadmapInsightButton" class="tiny-link" type="button">Details ansehen →</button>
+            </div>
           </div>
 
           <div id="milestoneRail" class="milestone-rail" aria-label="Meilensteine"></div>
@@ -261,8 +268,8 @@
 
       <div id="milestonesTab" class="admin-tab-content hidden">
         <div class="hint-card">
-          <strong>Meilensteine steuern den Fortschrittsbalken.</strong>
-          <span>Der Balken berechnet sich automatisch aus erledigten Meilensteinen. Wenn Distanzen gepflegt sind, wird zusätzlich „km erreicht von geplant“ angezeigt.</span>
+          <strong>Meilensteine steuern Fortschritt, Hochrechnung und Gesamt-KM.</strong>
+          <span>Du kannst Meilensteine nach Radfahren und Laufen trennen. Erledigte Meilenstein-KM können automatisch in die Gesamt-KM und in die Fortschritts-Hochrechnung einfließen.</span>
           <button id="seedMilestonesButton" class="secondary-btn" type="button">Standard-Meilensteine anlegen</button>
         </div>
 
@@ -270,6 +277,12 @@
           <input id="milestoneId" type="hidden">
           <label>Titel<input id="milestoneTitle" required placeholder="Venlo"></label>
           <label>Wahrzeichen / Emoji<input id="milestoneIcon" placeholder="⛪"></label>
+          <label>Sportart
+            <select id="milestoneSportType">
+              <option value="bike">Radfahren</option>
+              <option value="run">Laufen</option>
+            </select>
+          </label>
           <label class="wide">Wahrzeichen-Bild-URL optional<input id="milestoneImageUrl" placeholder="https://..."></label>
           <label>Reihenfolge<input id="milestoneOrder" type="number" required></label>
           <label>Status
@@ -290,6 +303,8 @@
           <label class="wide">Titelbild-URL<input id="milestoneCoverUrl"></label>
           <label class="wide">GPX-Link<input id="milestoneGpxUrl"></label>
           <label class="wide">Strava-/Komoot-Link<input id="milestoneActivityUrl"></label>
+          <label class="check wide"><input id="milestoneCountInStats" type="checkbox" checked> Erledigte KM in Gesamt-KM und Hochrechnung berücksichtigen</label>
+          <label class="check wide"><input id="milestoneCountAsAdventure" type="checkbox" checked> Als Abenteuer zählen, wenn erledigt</label>
           <div class="wide admin-form-actions">
             <button class="primary-btn" type="submit">Meilenstein speichern</button>
             <button id="resetMilestoneButton" class="secondary-btn" type="button">Leeren</button>
@@ -336,6 +351,6 @@
   </section>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script type="module" src="app.js?v=2.1"></script>
+  <script type="module" src="app.js?v=2.2"></script>
 </body>
 </html>

@@ -123,3 +123,29 @@ https://DEINNAME.github.io/younes-on-tour/gpx/venlo.gpx
 ```
 
 Diesen Link trägst du im Adminbereich bei Tour oder Meilenstein als GPX-Link ein.
+
+
+## Update 2.2 – kumulierte Kilometer und getrennte Meilensteine
+
+Neu:
+
+- Gesamt-KM werden jetzt kumuliert aus veröffentlichten Touren plus erledigten Meilenstein-KM berechnet.
+- Meilensteine haben jetzt eine Sportart: Radfahren oder Laufen.
+- Die Roadmap kann oben nach Alle / Rad / Laufen gefiltert werden.
+- Der Fortschrittsbalken berücksichtigt, wenn gepflegt, die abgeschlossenen Meilenstein-Kilometer im Verhältnis zu den geplanten Ziel-Kilometern.
+- Im Adminbereich kannst du bei jedem Meilenstein festlegen:
+  - Sportart
+  - geplante Distanz
+  - erledigte Distanz
+  - ob die KM in die Gesamtstatistik zählen
+  - ob der Meilenstein als Abenteuer zählt
+- Vergangene Aktivitäten kannst du weiterhin als Touren anlegen und bearbeiten. Alternativ kannst du sie als erledigte Meilensteine mit Distanz pflegen.
+
+Wichtig gegen Doppelzählung:
+
+Wenn eine Aktivität sowohl als Tour als auch als Meilenstein gepflegt ist, kann sie doppelt in die Gesamt-KM laufen.
+Dann im Adminbereich beim Meilenstein den Haken entfernen bei:
+
+`Erledigte KM in Gesamt-KM und Hochrechnung berücksichtigen`
+
+oder die Aktivität nur als Tour pflegen und dem Meilenstein zuordnen.

@@ -40,6 +40,9 @@ const defaultMilestones = [
     order: 1,
     completed: true,
     subtitle: "Erste Auslandstour",
+    sportType: "bike",
+    countInStats: true,
+    countAsAdventure: true,
     route: "Düsseldorf → Venlo",
     targetDistance: 65,
     actualDistance: 65,
@@ -59,6 +62,9 @@ const defaultMilestones = [
     order: 2,
     completed: false,
     subtitle: "Langdistanz-Test",
+    sportType: "bike",
+    countInStats: true,
+    countAsAdventure: true,
     route: "Düsseldorf → Xanten → Düsseldorf",
     targetDistance: 120,
     actualDistance: 0,
@@ -71,6 +77,9 @@ const defaultMilestones = [
     order: 3,
     completed: false,
     subtitle: "One-Way-Challenge",
+    sportType: "bike",
+    countInStats: true,
+    countAsAdventure: true,
     route: "Düsseldorf → Amsterdam",
     targetDistance: 240,
     actualDistance: 0,
@@ -83,6 +92,9 @@ const defaultMilestones = [
     order: 4,
     completed: false,
     subtitle: "Mehrtagestour",
+    sportType: "bike",
+    countInStats: true,
+    countAsAdventure: true,
     route: "Düsseldorf → Paris",
     targetDistance: 520,
     actualDistance: 0,
@@ -95,6 +107,9 @@ const defaultMilestones = [
     order: 5,
     completed: false,
     subtitle: "Das große Abenteuer",
+    sportType: "bike",
+    countInStats: true,
+    countAsAdventure: true,
     route: "Düsseldorf → Gardasee",
     targetDistance: 900,
     actualDistance: 0,
@@ -147,6 +162,7 @@ let milestones = [];
 let challenges = [];
 let siteConfig = { ...defaultSite };
 let activeTourFilter = "all";
+let activeMilestoneFilter = "all";
 let activeMap = null;
 
 const isConfigured =
@@ -209,9 +225,15 @@ function publishedTours() {
   return tours.filter((tour) => tour.published !== false);
 }
 
-function visibleMilestones() {
+function allMilestones() {
   const source = milestones.length ? milestones : defaultMilestones;
   return source.slice().sort((a, b) => numeric(a.order) - numeric(b.order));
+}
+
+function visibleMilestones(filter = activeMilestoneFilter) {
+  const source = allMilestones();
+  if (filter === "all") return source;
+  return source.filter((milestone) => (milestone.sportType || "bike") === filter);
 }
 
 function visibleChallenges() {
@@ -223,13 +245,28 @@ function calculateStats() {
   const list = publishedTours();
   const bikeTours = list.filter((tour) => tour.type === "bike");
   const runTours = list.filter((tour) => tour.type === "run");
-  const bikeKm = bikeTours.reduce((sum, tour) => sum + numeric(tour.distance), 0);
-  const runKm = runTours.reduce((sum, tour) => sum + numeric(tour.distance), 0);
+
+  const tourBikeKm = bikeTours.reduce((sum, tour) => sum + numeric(tour.distance), 0);
+  const tourRunKm = runTours.reduce((sum, tour) => sum + numeric(tour.distance), 0);
+
+  const countableMilestones = allMilestones().filter((m) => m.completed && m.countInStats !== false);
+  const bikeMilestones = countableMilestones.filter((m) => (m.sportType || "bike") === "bike");
+  const runMilestones = countableMilestones.filter((m) => (m.sportType || "bike") === "run");
+
+  const milestoneBikeKm = bikeMilestones.reduce((sum, m) => sum + numeric(m.actualDistance || m.distance || m.targetDistance), 0);
+  const milestoneRunKm = runMilestones.reduce((sum, m) => sum + numeric(m.actualDistance || m.distance || m.targetDistance), 0);
+
+  const bikeKm = tourBikeKm + milestoneBikeKm;
+  const runKm = tourRunKm + milestoneRunKm;
   const totalKm = bikeKm + runKm;
-  const longest = Math.max(0, ...list.map((tour) => numeric(tour.distance)));
-  const longestBike = Math.max(0, ...bikeTours.map((tour) => numeric(tour.distance)));
-  const longestRun = Math.max(0, ...runTours.map((tour) => numeric(tour.distance)));
-  const completedMilestones = visibleMilestones().filter((m) => m.completed).length;
+
+  const adventureMilestones = allMilestones().filter((m) => m.completed && m.countAsAdventure !== false);
+  const count = list.length + adventureMilestones.length;
+
+  const longest = Math.max(0, ...list.map((tour) => numeric(tour.distance)), ...countableMilestones.map((m) => numeric(m.actualDistance || m.distance || m.targetDistance)));
+  const longestBike = Math.max(0, ...bikeTours.map((tour) => numeric(tour.distance)), ...bikeMilestones.map((m) => numeric(m.actualDistance || m.distance || m.targetDistance)));
+  const longestRun = Math.max(0, ...runTours.map((tour) => numeric(tour.distance)), ...runMilestones.map((m) => numeric(m.actualDistance || m.distance || m.targetDistance)));
+  const completedMilestones = allMilestones().filter((m) => m.completed).length;
 
   return {
     tours: list,
@@ -238,7 +275,14 @@ function calculateStats() {
     bikeKm,
     runKm,
     totalKm,
-    count: list.length,
+    tourBikeKm,
+    tourRunKm,
+    milestoneBikeKm,
+    milestoneRunKm,
+    bikeMilestones,
+    runMilestones,
+    adventureMilestones,
+    count,
     longest,
     longestBike,
     longestRun,
@@ -246,15 +290,15 @@ function calculateStats() {
   };
 }
 
-function calculateRoadmap() {
-  const list = visibleMilestones();
+function calculateRoadmap(filter = activeMilestoneFilter) {
+  const list = visibleMilestones(filter);
   const completed = list.filter((m) => m.completed);
   const countTotal = list.length;
   const countDone = completed.length;
   const countPercent = countTotal ? Math.round((countDone / countTotal) * 100) : 0;
 
   const plannedDistance = list.reduce((sum, item) => {
-    const target = numeric(item.targetDistance || item.distance);
+    const target = numeric(item.targetDistance || item.distance || item.actualDistance);
     return sum + target;
   }, 0);
 
@@ -264,7 +308,8 @@ function calculateRoadmap() {
     return sum + actual;
   }, 0);
 
-  const distancePercent = plannedDistance ? Math.round((completedDistance / plannedDistance) * 100) : countPercent;
+  const distancePercent = plannedDistance ? Math.min(100, Math.round((completedDistance / plannedDistance) * 100)) : countPercent;
+  const progressPercent = plannedDistance ? distancePercent : countPercent;
 
   return {
     list,
@@ -274,7 +319,9 @@ function calculateRoadmap() {
     countPercent,
     plannedDistance,
     completedDistance,
-    distancePercent
+    distancePercent,
+    progressPercent,
+    filter
   };
 }
 
@@ -319,9 +366,9 @@ function renderSiteConfig() {
 function renderHeroStats() {
   const stats = calculateStats();
   $("#bikeTotal").textContent = formatKm(stats.bikeKm);
-  $("#bikeMeta").textContent = `${stats.bikeTours.length} ${stats.bikeTours.length === 1 ? "Tour" : "Touren"}`;
+  $("#bikeMeta").textContent = `${stats.bikeTours.length} Touren + ${stats.bikeMilestones.length} Meilenst.`;
   $("#runTotal").textContent = formatKm(stats.runKm);
-  $("#runMeta").textContent = `${stats.runTours.length} ${stats.runTours.length === 1 ? "Lauf" : "Läufe"}`;
+  $("#runMeta").textContent = `${stats.runTours.length} Läufe + ${stats.runMilestones.length} Meilenst.`;
   $("#adventureTotal").textContent = String(stats.count);
 }
 
@@ -336,25 +383,32 @@ function renderRoadmap() {
   const data = calculateRoadmap();
   const rail = $("#milestoneRail");
   rail.style.setProperty("--items", Math.max(data.list.length, 1));
-  rail.innerHTML = data.list.map((milestone) => {
-    const distance = numeric(milestone.actualDistance || milestone.targetDistance || milestone.distance);
-    return `
-      <button class="milestone-item ${milestone.completed ? "done" : ""}" type="button" data-milestone-id="${safe(milestone.id)}">
-        <div class="milestone-emblem">${milestoneIcon(milestone)}</div>
-        ${milestone.completed ? `<span class="milestone-check">✓</span>` : ""}
-        <strong>${safe(milestone.title)}</strong>
-        <span class="milestone-status">${milestone.completed ? "Erledigt" : "Geplant"}</span>
-        ${distance ? `<span class="milestone-distance">${formatKm(distance)}</span>` : ""}
-      </button>
-    `;
-  }).join("");
+
+  if (!data.list.length) {
+    rail.innerHTML = `<div class="empty-state">Für diesen Bereich sind noch keine Meilensteine angelegt.</div>`;
+  } else {
+    rail.innerHTML = data.list.map((milestone) => {
+      const distance = numeric(milestone.actualDistance || milestone.targetDistance || milestone.distance);
+      const typeLabel = (milestone.sportType || "bike") === "run" ? "Laufen" : "Rad";
+      return `
+        <button class="milestone-item ${milestone.completed ? "done" : ""}" type="button" data-milestone-id="${safe(milestone.id)}">
+          <div class="milestone-emblem">${milestoneIcon(milestone)}</div>
+          ${milestone.completed ? `<span class="milestone-check">✓</span>` : ""}
+          <strong>${safe(milestone.title)}</strong>
+          <span class="milestone-status">${milestone.completed ? "Erledigt" : "Geplant"}</span>
+          <span class="milestone-type">${safe(typeLabel)}</span>
+          ${distance ? `<span class="milestone-distance">${formatKm(distance)}</span>` : ""}
+        </button>
+      `;
+    }).join("");
+  }
 
   $$("#milestoneRail [data-milestone-id]").forEach((button) => {
     button.addEventListener("click", () => openMilestone(button.dataset.milestoneId));
   });
 
-  $("#roadmapPercent").textContent = `${data.countPercent}%`;
-  $("#roadmapProgress").style.width = `${data.countPercent}%`;
+  $("#roadmapPercent").textContent = `${data.progressPercent}%`;
+  $("#roadmapProgress").style.width = `${data.progressPercent}%`;
   $("#roadmapCountMeta").textContent = `${data.countDone} / ${data.countTotal} Meilensteine erreicht`;
   $("#roadmapDistanceMeta").textContent = data.plannedDistance
     ? `${formatKm(data.completedDistance)} von ca. ${formatKm(data.plannedDistance)}`
@@ -479,8 +533,11 @@ function openInsight(type) {
     title = "Rad-Insights";
     metrics = [
       ["Gesamt", formatKm(stats.bikeKm)],
-      ["Touren", stats.bikeTours.length],
-      ["Längste Tour", formatKm(stats.longestBike)]
+      ["Touren-KM", formatKm(stats.tourBikeKm)],
+      ["Meilenstein-KM", formatKm(stats.milestoneBikeKm)],
+      ["Aktivitäten", stats.bikeTours.length + stats.bikeMilestones.length],
+      ["Längste Aktivität", formatKm(stats.longestBike)],
+      ["Meilensteine", stats.bikeMilestones.length]
     ];
     text = "Hier werden alle veröffentlichten Radtouren zusammengerechnet. Sobald du im Adminbereich eine neue Radtour veröffentlichst, aktualisieren sich diese Werte automatisch.";
   }
@@ -489,8 +546,11 @@ function openInsight(type) {
     title = "Lauf-Insights";
     metrics = [
       ["Gesamt", formatKm(stats.runKm)],
-      ["Läufe", stats.runTours.length],
-      ["Längster Lauf", formatKm(stats.longestRun)]
+      ["Lauf-KM", formatKm(stats.tourRunKm)],
+      ["Meilenstein-KM", formatKm(stats.milestoneRunKm)],
+      ["Aktivitäten", stats.runTours.length + stats.runMilestones.length],
+      ["Längste Aktivität", formatKm(stats.longestRun)],
+      ["Meilensteine", stats.runMilestones.length]
     ];
     text = "Hier werden alle veröffentlichten Läufe zusammengerechnet. Du kannst Laufen und Radfahren sauber getrennt tracken.";
   }
@@ -501,7 +561,7 @@ function openInsight(type) {
     metrics = [
       ["Einträge", stats.count],
       ["Meilensteine", `${roadmap.countDone}/${roadmap.countTotal}`],
-      ["Roadmap", `${roadmap.countPercent}%`]
+      ["Roadmap", `${roadmap.progressPercent}%`]
     ];
     text = "Die Roadmap zählt alle Meilensteine. Der Fortschrittsbalken passt sich automatisch an, sobald du Meilensteine im Adminbereich als erledigt markierst.";
   }
@@ -525,7 +585,7 @@ function openInsight(type) {
 }
 
 function openMilestone(id) {
-  const milestone = visibleMilestones().find((item) => item.id === id);
+  const milestone = allMilestones().find((item) => item.id === id);
   if (!milestone) return;
 
   const relatedTours = publishedTours().filter((tour) => tour.milestoneId === id);
@@ -544,11 +604,14 @@ function openMilestone(id) {
     <div class="detail-body">
       <div class="insight-grid">
         <div class="insight-metric"><span>Status</span><strong>${safe(status)}</strong></div>
+        <div class="insight-metric"><span>Sportart</span><strong>${safe((milestone.sportType || "bike") === "run" ? "Laufen" : "Rad")}</strong></div>
         <div class="insight-metric"><span>Distanz</span><strong>${distance ? formatKm(distance) : "–"}</strong></div>
         <div class="insight-metric"><span>Datum</span><strong>${safe(dateLabel(milestone.completedDate) || "–")}</strong></div>
         <div class="insight-metric"><span>Dauer</span><strong>${safe(milestone.duration || "–")}</strong></div>
         <div class="insight-metric"><span>Ø Tempo</span><strong>${safe(milestone.speed || "–")}</strong></div>
         <div class="insight-metric"><span>Höhenmeter</span><strong>${numeric(milestone.elevation)} m</strong></div>
+        <div class="insight-metric"><span>Zählt in Gesamt-KM</span><strong>${milestone.countInStats !== false ? "Ja" : "Nein"}</strong></div>
+        <div class="insight-metric"><span>Zählt als Abenteuer</span><strong>${milestone.countAsAdventure !== false ? "Ja" : "Nein"}</strong></div>
       </div>
       <p class="detail-text">${safe(milestone.story || milestone.subtitle || "Noch keine Streckeninfos gepflegt.")}</p>
       ${relatedTours.length ? `
@@ -679,7 +742,7 @@ async function renderGpxMap(gpxUrl) {
 function renderAdminSelectors() {
   const select = $("#tourMilestoneId");
   const selected = select.value;
-  select.innerHTML = `<option value="">Keinem Meilenstein zuordnen</option>` + visibleMilestones().map((m) => (
+  select.innerHTML = `<option value="">Keinem Meilenstein zuordnen</option>` + allMilestones().map((m) => (
     `<option value="${safe(m.id)}">${safe(m.title)}</option>`
   )).join("");
   select.value = selected;
@@ -725,12 +788,12 @@ function renderAdminMilestoneList() {
     return;
   }
 
-  const list = visibleMilestones();
+  const list = allMilestones();
   container.innerHTML = list.map((m) => `
     <div class="admin-row">
       <div>
         <strong>${safe(m.icon || "•")} ${safe(m.title)}</strong>
-        <small>${m.completed ? "Erledigt" : "Geplant"} · Position ${numeric(m.order)} · ${formatKm(numeric(m.actualDistance || m.targetDistance))}</small>
+        <small>${safe((m.sportType || "bike") === "run" ? "Laufen" : "Radfahren")} · ${m.completed ? "Erledigt" : "Geplant"} · Position ${numeric(m.order)} · ${formatKm(numeric(m.actualDistance || m.targetDistance))}</small>
       </div>
       <div class="admin-row-actions">
         <button class="small-btn" type="button" data-edit-milestone="${safe(m.id)}">Bearbeiten</button>
@@ -815,16 +878,20 @@ async function deleteTour(id) {
 function resetMilestoneForm() {
   $("#milestoneForm").reset();
   $("#milestoneId").value = "";
+  $("#milestoneSportType").value = "bike";
+  $("#milestoneCountInStats").checked = true;
+  $("#milestoneCountAsAdventure").checked = true;
   $("#milestoneStatus").textContent = "";
 }
 
 function editMilestone(id) {
-  const milestone = visibleMilestones().find((item) => item.id === id);
+  const milestone = allMilestones().find((item) => item.id === id);
   if (!milestone) return;
 
   $("#milestoneId").value = String(milestone.id).startsWith("demo-") ? "" : milestone.id;
   $("#milestoneTitle").value = milestone.title || "";
   $("#milestoneIcon").value = milestone.icon || "";
+  $("#milestoneSportType").value = milestone.sportType || "bike";
   $("#milestoneImageUrl").value = milestone.imageUrl || "";
   $("#milestoneOrder").value = milestone.order || "";
   $("#milestoneCompleted").value = String(Boolean(milestone.completed));
@@ -840,6 +907,8 @@ function editMilestone(id) {
   $("#milestoneCoverUrl").value = milestone.coverUrl || "";
   $("#milestoneGpxUrl").value = milestone.gpxUrl || "";
   $("#milestoneActivityUrl").value = milestone.activityUrl || "";
+  $("#milestoneCountInStats").checked = milestone.countInStats !== false;
+  $("#milestoneCountAsAdventure").checked = milestone.countAsAdventure !== false;
 
   openAdminTab("milestones");
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -924,6 +993,14 @@ function bindEvents() {
     activeTourFilter = button.dataset.filter;
     $$("#tourFilter button").forEach((b) => b.classList.toggle("active", b === button));
     renderTours();
+  });
+
+  $("#milestoneFilter").addEventListener("click", (event) => {
+    const button = event.target.closest("button");
+    if (!button) return;
+    activeMilestoneFilter = button.dataset.filter;
+    $$("#milestoneFilter button").forEach((b) => b.classList.toggle("active", b === button));
+    renderRoadmap();
   });
 
   const openLogin = () => {
@@ -1027,6 +1104,7 @@ function bindEvents() {
     const payload = {
       title: $("#milestoneTitle").value,
       icon: $("#milestoneIcon").value,
+      sportType: $("#milestoneSportType").value,
       imageUrl: $("#milestoneImageUrl").value,
       order: numeric($("#milestoneOrder").value),
       completed: $("#milestoneCompleted").value === "true",
@@ -1042,6 +1120,8 @@ function bindEvents() {
       coverUrl: $("#milestoneCoverUrl").value,
       gpxUrl: $("#milestoneGpxUrl").value,
       activityUrl: $("#milestoneActivityUrl").value,
+      countInStats: $("#milestoneCountInStats").checked,
+      countAsAdventure: $("#milestoneCountAsAdventure").checked,
       updatedAt: serverTimestamp()
     };
 
