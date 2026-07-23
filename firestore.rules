@@ -2,10 +2,8 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /tours/{tourId} {
-      allow read: if resource.data.published == true
-                  || (request.auth != null && request.auth.token.email == "DEINE_EMAIL@BEISPIEL.DE");
-      allow create, update, delete: if request.auth != null
-                  && request.auth.token.email == "DEINE_EMAIL@BEISPIEL.DE";
+      allow read: if resource.data.published == true || (request.auth != null && request.auth.token.email == "DEINE_EMAIL@BEISPIEL.DE");
+      allow create, update, delete: if request.auth != null && request.auth.token.email == "DEINE_EMAIL@BEISPIEL.DE";
     }
   }
 }
