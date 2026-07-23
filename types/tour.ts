@@ -1,0 +1,1 @@
+export type Tour={id:string;title:string;type:'bike'|'run';date:string;route:string;distance:number;duration?:string;speed?:string;elevation?:number;heartRate?:number;coverUrl?:string;galleryUrls?:string[];videoUrl?:string;activityUrl?:string;gpxUrl?:string;story:string;learnings?:string;published:boolean};
