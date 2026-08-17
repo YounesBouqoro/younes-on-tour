@@ -6,10 +6,33 @@
   <meta name="theme-color" content="#070909">
   <title>Younes on Tour</title>
   <meta name="description" content="Persönliches Adventure-Dashboard für Radfahren, Laufen, Touren, Meilensteine und Challenges.">
+  <link rel="canonical" href="https://younesbouqoro.github.io/younes-on-tour/">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="site.webmanifest">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="de_DE">
+  <meta property="og:site_name" content="Younes on Tour">
+  <meta property="og:title" content="Younes on Tour – Bike, Run & Adventure">
+  <meta property="og:description" content="Touren, Meilensteine und die nächsten großen Abenteuer – von Düsseldorf in die Welt.">
+  <meta property="og:url" content="https://younesbouqoro.github.io/younes-on-tour/">
+  <meta property="og:image" content="https://younesbouqoro.github.io/younes-on-tour/media/hero-neu.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Younes on Tour – Bike, Run & Adventure">
+  <meta name="twitter:description" content="Touren, Meilensteine und die nächsten großen Abenteuer.">
+  <meta name="twitter:image" content="https://younesbouqoro.github.io/younes-on-tour/media/hero-neu.png">
   <link rel="preconnect" href="https://www.gstatic.com">
   <link rel="preconnect" href="https://unpkg.com">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="styles.css?v=3.0">
+  <link rel="stylesheet" href="styles.css?v=4.0">
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Younes on Tour",
+      "url": "https://younesbouqoro.github.io/younes-on-tour/",
+      "description": "Persönliches Tourtagebuch für Radfahren, Laufen und Abenteuer."
+    }
+  </script>
 </head>
 
 <body>
@@ -19,6 +42,7 @@
     <nav class="desktop-nav" aria-label="Hauptnavigation">
       <a href="#overview" class="nav-link active">Übersicht</a>
       <a href="#tours" class="nav-link">Touren</a>
+      <a href="#journey-map" class="nav-link">Karte</a>
       <a href="#challenges" class="nav-link">Challenges</a>
       <a href="#roadmap" class="nav-link">Roadmap</a>
       <a href="#gallery" class="nav-link">Galerie</a>
@@ -37,6 +61,7 @@
     <button class="menu-close" type="button" data-close="mobileMenu">×</button>
     <a href="#overview">Übersicht</a>
     <a href="#tours">Touren</a>
+    <a href="#journey-map">Karte</a>
     <a href="#challenges">Challenges</a>
     <a href="#roadmap">Roadmap</a>
     <a href="#gallery">Galerie</a>
@@ -112,6 +137,20 @@
       </div>
     </section>
 
+    <section id="next-adventure" class="content-section next-adventure-section">
+      <div class="section-head compact">
+        <div>
+          <p class="eyebrow accent">ALS NÄCHSTES</p>
+          <h2>Das nächste Abenteuer</h2>
+        </div>
+      </div>
+      <div id="nextAdventureCard" class="next-adventure-card loading-card" aria-live="polite">
+        <span class="skeleton skeleton-title"></span>
+        <span class="skeleton skeleton-line"></span>
+        <span class="skeleton skeleton-line short"></span>
+      </div>
+    </section>
+
     <section id="tours" class="content-section">
       <div class="section-head">
         <div>
@@ -125,6 +164,21 @@
         </div>
       </div>
       <div id="tourGrid" class="tour-grid"></div>
+    </section>
+
+    <section id="journey-map" class="content-section journey-map-section">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow accent">ALLE STRECKEN</p>
+          <h2>Meine Tourenkarte</h2>
+        </div>
+        <div class="map-legend" aria-label="Kartenlegende">
+          <span><i class="legend-line completed"></i> Absolviert</span>
+          <span><i class="legend-dot planned"></i> Geplant</span>
+        </div>
+      </div>
+      <div id="overviewMap" class="overview-map" role="region" aria-label="Interaktive Karte aller Touren und Ziele"></div>
+      <p id="overviewMapStatus" class="map-status" aria-live="polite">Tourenkarte wird geladen …</p>
     </section>
 
     <section id="challenges" class="content-section split-section">
@@ -163,22 +217,22 @@
     <span>Gebaut für Kilometer, Erinnerungen und die nächste Challenge.</span>
   </footer>
 
-  <div id="insightModal" class="modal-backdrop hidden">
-    <article class="modal-card">
+  <div id="insightModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="Details">
+    <article class="modal-card" tabindex="-1">
       <button class="modal-close" type="button" data-close="insightModal">×</button>
       <div id="insightContent"></div>
     </article>
   </div>
 
-  <div id="tourModal" class="modal-backdrop hidden">
-    <article class="modal-card wide-modal">
+  <div id="tourModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="Tourdetails">
+    <article class="modal-card wide-modal" tabindex="-1">
       <button class="modal-close" type="button" data-close="tourModal">×</button>
       <div id="tourDetail"></div>
     </article>
   </div>
 
-  <div id="loginModal" class="modal-backdrop hidden">
-    <form id="loginForm" class="login-card">
+  <div id="loginModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="Admin-Login">
+    <form id="loginForm" class="login-card" tabindex="-1">
       <button class="modal-close" type="button" data-close="loginModal">×</button>
       <p class="eyebrow accent">ADMIN</p>
       <h2>Einloggen</h2>
@@ -299,10 +353,14 @@
           <label>Geplante Distanz km<input id="milestoneTargetDistance" type="number" step="0.01"></label>
           <label>Erreichte Distanz km<input id="milestoneActualDistance" type="number" step="0.01"></label>
           <label>Datum erledigt<input id="milestoneCompletedDate" type="date"></label>
+          <label>Geplantes Datum<input id="milestonePlannedDate" type="date"></label>
+          <label>Vorbereitungsstand %<input id="milestonePreparationPercent" type="number" min="0" max="100" step="1"></label>
           <label>Dauer<input id="milestoneDuration" placeholder="z. B. 4:12 h"></label>
           <label>Ø Tempo<input id="milestoneSpeed" placeholder="z. B. 24,3 km/h"></label>
           <label>Höhenmeter<input id="milestoneElevation" type="number"></label>
           <label class="wide">Route<input id="milestoneRoute" placeholder="Düsseldorf → Venlo"></label>
+          <label>Ziel-Breitengrad<input id="milestoneLatitude" type="number" step="any" placeholder="z. B. 52.3676"></label>
+          <label>Ziel-Längengrad<input id="milestoneLongitude" type="number" step="any" placeholder="z. B. 4.9041"></label>
           <label class="wide">Kurzbeschreibung<input id="milestoneSubtitle" placeholder="Erste Auslandstour"></label>
           <label class="wide">Streckeninfos / Bericht<textarea id="milestoneStory" rows="6"></textarea></label>
           <label class="wide">Titelbild-URL<input id="milestoneCoverUrl"></label>
@@ -422,6 +480,6 @@
   </section>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script type="module" src="app.js?v=2.7"></script>
+  <script type="module" src="app.js?v=4.0"></script>
 </body>
 </html>
