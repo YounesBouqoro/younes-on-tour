@@ -1,4 +1,6 @@
 import { firebaseConfig, ADMIN_EMAIL } from "./firebase-config.js";
+import { formatNumber, formatKm, safe, nl2br, numeric, dateLabel } from "./modules/utils.js";
+import { parseStravaEmbed, stravaEmbedCode, stravaEmbedMarkup, refreshStravaEmbeds, youtubeVideoId, youtubeEmbedMarkup } from "./modules/embeds.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
 import {
   getAuth,
@@ -53,7 +55,10 @@ const defaultMilestones = [
     story: "Der erste Meilenstein der Roadmap. Hier kannst du später Strecke, GPX, Bilder und Bericht ergänzen.",
     coverUrl: "",
     gpxUrl: "",
-    activityUrl: ""
+    activityUrl: "",
+    latitude: 51.3704,
+    longitude: 6.1724,
+    preparationPercent: 100
   },
   {
     id: "demo-xanten",
@@ -68,7 +73,10 @@ const defaultMilestones = [
     route: "Düsseldorf → Xanten → Düsseldorf",
     targetDistance: 120,
     actualDistance: 0,
-    story: "Geplantes Ziel für den nächsten längeren Radtest."
+    story: "Geplantes Ziel für den nächsten längeren Radtest.",
+    latitude: 51.6626,
+    longitude: 6.4537,
+    preparationPercent: 0
   },
   {
     id: "demo-amsterdam",
@@ -83,7 +91,10 @@ const defaultMilestones = [
     route: "Düsseldorf → Amsterdam",
     targetDistance: 240,
     actualDistance: 0,
-    story: "Mit dem Rad hin, mit dem Zug zurück."
+    story: "Mit dem Rad hin, mit dem Zug zurück.",
+    latitude: 52.3676,
+    longitude: 4.9041,
+    preparationPercent: 0
   },
   {
     id: "demo-paris",
@@ -98,7 +109,10 @@ const defaultMilestones = [
     route: "Düsseldorf → Paris",
     targetDistance: 520,
     actualDistance: 0,
-    story: "Das große Mehrtagesziel."
+    story: "Das große Mehrtagesziel.",
+    latitude: 48.8566,
+    longitude: 2.3522,
+    preparationPercent: 0
   },
   {
     id: "demo-gardasee",
@@ -113,7 +127,10 @@ const defaultMilestones = [
     route: "Düsseldorf → Gardasee",
     targetDistance: 900,
     actualDistance: 0,
-    story: "Langfristiges Ziel mit richtigem Abenteuer-Charakter."
+    story: "Langfristiges Ziel mit richtigem Abenteuer-Charakter.",
+    latitude: 45.6049,
+    longitude: 10.6357,
+    preparationPercent: 0
   }
 ];
 
@@ -165,6 +182,16 @@ let siteConfig = { ...defaultSite };
 let activeTourFilter = "all";
 let activeMilestoneFilter = "all";
 let activeMap = null;
+let overviewMap = null;
+let overviewLayer = null;
+let overviewRenderVersion = 0;
+let lastFocusedElement = null;
+const loadState = { tours: false, milestones: false, challenges: false, gallery: false };
+
+const knownDestinations = {
+  venlo: [51.3704, 6.1724], xanten: [51.6626, 6.4537], amsterdam: [52.3676, 4.9041],
+  paris: [48.8566, 2.3522], gardasee: [45.6049, 10.6357]
+};
 
 const isConfigured =
   firebaseConfig &&
@@ -183,98 +210,6 @@ if (isConfigured) {
   milestones = [...defaultMilestones];
   challenges = [...demoChallenges];
 }
-
-function formatNumber(value, digits = 1) {
-  const number = Number(value || 0);
-  return number.toLocaleString("de-DE", {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits
-  });
-}
-
-function formatKm(value) {
-  return `${formatNumber(value, 1)} km`;
-}
-
-function safe(value) {
-  return String(value ?? "").replace(/[&<>"']/g, (char) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#039;"
-  }[char]));
-}
-
-function nl2br(value) {
-  return safe(value).replace(/\n/g, "<br>");
-}
-
-function parseStravaEmbed(value) {
-  if (!value) return null;
-
-  if (typeof value === "object") {
-    const id = String(value.id || "").trim();
-    const token = String(value.token || "").trim();
-    if (!/^\d+$/.test(id)) return null;
-    if (token && !/^[A-Za-z0-9_-]+$/.test(token)) return null;
-    return { id, token };
-  }
-
-  const raw = String(value).trim();
-  if (!raw) return null;
-
-  const parsedDocument = new DOMParser().parseFromString(raw, "text/html");
-  const placeholder = parsedDocument.querySelector(".strava-embed-placeholder");
-  const activityUrlMatch = raw.match(/strava\.com\/activities\/(\d+)/i);
-  const id = String(placeholder?.dataset.embedId || activityUrlMatch?.[1] || "").trim();
-  const token = String(placeholder?.dataset.token || "").trim();
-
-  if (!/^\d+$/.test(id)) return null;
-  if (token && !/^[A-Za-z0-9_-]+$/.test(token)) return null;
-
-  return { id, token };
-}
-
-function stravaEmbedCode(value) {
-  const embed = parseStravaEmbed(value);
-  if (!embed) return "";
-  const tokenAttribute = embed.token ? ` data-token="${embed.token}"` : "";
-  return `<div class="strava-embed-placeholder" data-embed-type="activity" data-embed-id="${embed.id}" data-style="standard" data-from-embed="false"${tokenAttribute}></div><script src="https://strava-embeds.com/embed.js"></script>`;
-}
-
-function stravaEmbedMarkup(value) {
-  const embed = parseStravaEmbed(value);
-  if (!embed) return "";
-  const tokenAttribute = embed.token ? ` data-token="${embed.token}"` : "";
-  return `<div class="strava-embed-shell"><div class="strava-embed-placeholder" data-embed-type="activity" data-embed-id="${embed.id}" data-style="standard" data-from-embed="false"${tokenAttribute}></div></div>`;
-}
-
-function refreshStravaEmbeds() {
-  window.setTimeout(() => {
-    if (!document.querySelector(".strava-embed-placeholder")) return;
-
-    document.querySelectorAll("script[data-yot-strava-embed]").forEach((script) => script.remove());
-    const script = document.createElement("script");
-    script.src = "https://strava-embeds.com/embed.js";
-    script.async = true;
-    script.dataset.yotStravaEmbed = "true";
-    document.body.appendChild(script);
-  }, 0);
-}
-
-function numeric(value) {
-  const n = Number(value || 0);
-  return Number.isFinite(n) ? n : 0;
-}
-
-function dateLabel(value) {
-  if (!value) return "";
-  const date = new Date(`${value}T12:00:00`);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("de-DE", { day: "2-digit", month: "short", year: "numeric" });
-}
-
 
 function currentViewportTarget() {
   return window.matchMedia("(max-width: 760px)").matches ? "mobile" : "desktop";
@@ -446,12 +381,15 @@ function challengeValue(challenge) {
 function renderAll() {
   renderSiteConfig();
   renderHeroStats();
+  renderNextAdventure();
   renderRoadmap();
   renderTours();
   renderChallenges();
   renderGallery();
   renderAdminSelectors();
   renderAdminLists();
+  renderOverviewMap();
+  openTourFromHash();
 }
 
 function renderSiteConfig() {
@@ -480,9 +418,40 @@ function renderHeroStats() {
 
 function milestoneIcon(milestone) {
   if (milestone.imageUrl) {
-    return `<img src="${safe(milestone.imageUrl)}" alt="">`;
+    return `<img src="${safe(milestone.imageUrl)}" alt="${safe(milestone.title || "Meilenstein")}" loading="lazy">`;
   }
   return `<span>${safe(milestone.icon || "•")}</span>`;
+}
+
+function renderNextAdventure() {
+  const container = $("#nextAdventureCard");
+  if (!container) return;
+  const next = allMilestones().find((milestone) => !milestone.completed);
+  if (!next) {
+    container.classList.remove("loading-card");
+    container.innerHTML = `<div><p class="eyebrow accent">ROADMAP GESCHAFFT</p><h3>Alle Ziele erreicht!</h3><p>Zeit, das nächste große Abenteuer anzulegen.</p></div>`;
+    return;
+  }
+  const preparation = Math.max(0, Math.min(100, numeric(next.preparationPercent)));
+  const planned = next.plannedDate ? new Date(`${next.plannedDate}T12:00:00`) : null;
+  const days = planned && !Number.isNaN(planned.getTime()) ? Math.ceil((planned - new Date()) / 86400000) : null;
+  const countdown = days === null ? "Termin offen" : days > 0 ? `Noch ${days} Tage` : days === 0 ? "Heute geht’s los" : "Termin prüfen";
+  const image = next.coverUrl || next.imageUrl || PLACEHOLDER_IMAGE;
+  container.classList.remove("loading-card");
+  container.innerHTML = `
+    <div class="next-adventure-image" style="background-image:url('${safe(image)}')"></div>
+    <div class="next-adventure-copy">
+      <div class="next-adventure-meta"><span>${safe(next.icon || "🗺️")} ${safe(countdown)}</span><span>${safe(dateLabel(next.plannedDate) || "Datum folgt")}</span></div>
+      <h3>${safe(next.title)}</h3>
+      <p>${safe(next.route || next.subtitle || "Das nächste Ziel auf der Roadmap.")}</p>
+      <div class="preparation-row"><span>Vorbereitung</span><strong>${preparation}%</strong></div>
+      <div class="preparation-track"><span style="width:${preparation}%"></span></div>
+      <div class="next-adventure-actions">
+        <button class="primary-btn" type="button" data-open-next="${safe(next.id)}">Details ansehen</button>
+        ${numeric(next.targetDistance) ? `<strong>${formatKm(next.targetDistance)}</strong>` : ""}
+      </div>
+    </div>`;
+  container.querySelector("[data-open-next]")?.addEventListener("click", () => openMilestone(next.id));
 }
 
 function renderRoadmap() {
@@ -522,6 +491,10 @@ function renderRoadmap() {
 }
 
 function renderTours() {
+  if (firebaseReady && !loadState.tours) {
+    $("#tourGrid").innerHTML = Array.from({ length: 4 }, () => `<div class="tour-card skeleton-card"><span class="skeleton skeleton-image"></span><span class="skeleton skeleton-title"></span><span class="skeleton skeleton-line"></span></div>`).join("");
+    return;
+  }
   const list = publishedTours()
     .filter((tour) => activeTourFilter === "all" || tour.type === activeTourFilter)
     .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
@@ -536,8 +509,8 @@ function renderTours() {
     const image = tour.coverUrl || PLACEHOLDER_IMAGE;
     const icon = tour.type === "run" ? "🏃" : "🚴";
     return `
-      <button class="tour-card" type="button" data-tour-id="${safe(tour.id)}">
-        <div class="tour-image" style="background-image:url('${safe(image)}')">
+      <button class="tour-card" type="button" data-tour-id="${safe(tour.id)}" aria-label="Tour ${safe(tour.title)} öffnen">
+        <div class="tour-image" role="img" aria-label="${safe(tour.title)}" style="background-image:url('${safe(image)}')">
           <span class="tour-badge">${icon} ${formatKm(tour.distance)}</span>
         </div>
         <div class="tour-body">
@@ -652,15 +625,22 @@ function renderGallery() {
 }
 
 function showModal(id) {
-  $(`#${id}`).classList.remove("hidden");
+  lastFocusedElement = document.activeElement;
+  const modal = $(`#${id}`);
+  modal.classList.remove("hidden");
+  document.body.classList.add("modal-open");
+  window.setTimeout(() => modal.querySelector(".modal-card,.login-card")?.focus(), 0);
 }
 
 function hideModal(id) {
   $(`#${id}`).classList.add("hidden");
+  if (!document.querySelector(".modal-backdrop:not(.hidden)")) document.body.classList.remove("modal-open");
   if (activeMap) {
     activeMap.remove();
     activeMap = null;
   }
+  if (id === "tourModal" && location.hash.startsWith("#tour=")) history.replaceState(null, "", `${location.pathname}${location.search}#tours`);
+  lastFocusedElement?.focus?.();
 }
 
 function openInsight(type) {
@@ -838,7 +818,23 @@ function openGalleryItem(id) {
 }
 
 
-function openTour(id) {
+function tourShareUrl(id) {
+  return `${location.origin}${location.pathname}${location.search}#tour=${encodeURIComponent(id)}`;
+}
+
+async function shareTour(tour) {
+  const url = tourShareUrl(tour.id);
+  if (navigator.share) {
+    try { await navigator.share({ title: tour.title, text: tour.route || "Younes on Tour", url }); return; } catch (error) {
+      if (error?.name === "AbortError") return;
+    }
+  }
+  await navigator.clipboard.writeText(url);
+  const button = $("[data-share-tour]");
+  if (button) { button.textContent = "Link kopiert ✓"; window.setTimeout(() => { button.textContent = "Tour teilen"; }, 1800); }
+}
+
+function openTour(id, updateHash = true) {
   const tour = tours.find((item) => item.id === id);
   if (!tour) return;
 
@@ -865,19 +861,30 @@ function openTour(id) {
       <p class="detail-text">${safe(tour.story || "")}</p>
       ${tour.learnings ? `<h3>Fazit & Learnings</h3><p class="detail-text">${safe(tour.learnings)}</p>` : ""}
       ${stravaEmbedMarkup(tour.stravaEmbed)}
+      ${youtubeEmbedMarkup(tour.videoUrl, `${tour.title} – Tourvideo`)}
       <div class="detail-actions">
+        <button class="secondary-btn" type="button" data-share-tour>Tour teilen</button>
         ${tour.activityUrl ? `<a class="primary-link" href="${safe(tour.activityUrl)}" target="_blank" rel="noreferrer">Aktivität öffnen</a>` : ""}
-        ${tour.videoUrl ? `<a href="${safe(tour.videoUrl)}" target="_blank" rel="noreferrer">Video ansehen</a>` : ""}
+        ${tour.videoUrl && !youtubeVideoId(tour.videoUrl) ? `<a href="${safe(tour.videoUrl)}" target="_blank" rel="noreferrer">Video ansehen</a>` : ""}
         ${tour.gpxUrl ? `<a href="${safe(tour.gpxUrl)}" target="_blank" rel="noreferrer">GPX öffnen</a>` : ""}
       </div>
       ${tour.gpxUrl ? `<div id="modalMap" class="map-box"></div>` : ""}
-      ${gallery.length ? `<div class="detail-gallery">${gallery.map((src) => `<img src="${safe(src)}" alt="">`).join("")}</div>` : ""}
+      ${gallery.length ? `<div class="detail-gallery">${gallery.map((src, index) => `<img src="${safe(src)}" alt="${safe(tour.title)} – Bild ${index + 1}" loading="lazy">`).join("")}</div>` : ""}
     </div>
   `;
 
   showModal("tourModal");
+  if (updateHash && location.hash !== `#tour=${encodeURIComponent(id)}`) history.pushState({ tourId: id }, "", `#tour=${encodeURIComponent(id)}`);
+  $("[data-share-tour]")?.addEventListener("click", () => shareTour(tour));
   refreshStravaEmbeds();
   if (tour.gpxUrl) setTimeout(() => renderGpxMap(tour.gpxUrl), 100);
+}
+
+function openTourFromHash() {
+  const match = location.hash.match(/^#tour=(.+)$/);
+  if (!match) return;
+  const id = decodeURIComponent(match[1]);
+  if (tours.some((tour) => tour.id === id) && $("#tourModal")?.classList.contains("hidden")) openTour(id, false);
 }
 
 function parseGpx(text) {
@@ -915,6 +922,61 @@ async function renderGpxMap(gpxUrl) {
   } catch (error) {
     container.innerHTML = `<div class="empty-state">Karte konnte nicht geladen werden. Prüfe den GPX-Link.</div>`;
   }
+}
+
+function milestoneCoordinates(milestone) {
+  const lat = Number(milestone.latitude);
+  const lng = Number(milestone.longitude);
+  if (Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) return [lat, lng];
+  const haystack = `${milestone.title || ""} ${milestone.route || ""}`.toLowerCase();
+  const key = Object.keys(knownDestinations).find((name) => haystack.includes(name));
+  return key ? knownDestinations[key] : null;
+}
+
+async function renderOverviewMap() {
+  const container = $("#overviewMap");
+  const status = $("#overviewMapStatus");
+  if (!container || !window.L) return;
+  const version = ++overviewRenderVersion;
+  if (!overviewMap) {
+    overviewMap = L.map(container, { scrollWheelZoom: false });
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "&copy; OpenStreetMap" }).addTo(overviewMap);
+    overviewMap.setView([51.2277, 6.7735], 6);
+  }
+  overviewLayer?.remove();
+  overviewLayer = L.layerGroup().addTo(overviewMap);
+  const bounds = [];
+  let routes = 0;
+
+  const routeResults = await Promise.all(publishedTours().filter((tour) => tour.gpxUrl).map(async (tour) => {
+    try {
+      const response = await fetch(tour.gpxUrl);
+      if (!response.ok) return null;
+      const points = parseGpx(await response.text());
+      return points.length ? { tour, points } : null;
+    } catch { return null; }
+  }));
+  if (version !== overviewRenderVersion) return;
+  routeResults.filter(Boolean).forEach(({ tour, points }) => {
+    const line = L.polyline(points, { color: "#f2552c", weight: 5, opacity: .9 }).addTo(overviewLayer);
+    line.bindPopup(`<strong>${safe(tour.title)}</strong><br>${safe(formatKm(tour.distance))}<br><button class="map-popup-button" data-map-tour="${safe(tour.id)}">Tour öffnen</button>`);
+    line.on("popupopen", (event) => event.popup.getElement()?.querySelector("[data-map-tour]")?.addEventListener("click", () => openTour(tour.id)));
+    bounds.push(...points.filter((_, index) => index % 20 === 0));
+    routes += 1;
+  });
+
+  let targets = 0;
+  allMilestones().forEach((milestone) => {
+    const coordinates = milestoneCoordinates(milestone);
+    if (!coordinates) return;
+    const icon = L.divIcon({ className: "journey-marker-wrap", html: `<span class="journey-marker ${milestone.completed ? "done" : "planned"}">${safe(milestone.icon || "•")}</span>`, iconSize: [38, 38], iconAnchor: [19, 19] });
+    L.marker(coordinates, { icon }).addTo(overviewLayer).bindPopup(`<strong>${safe(milestone.title)}</strong><br>${milestone.completed ? "Erreicht" : "Geplant"}`);
+    bounds.push(coordinates);
+    targets += 1;
+  });
+  if (bounds.length) overviewMap.fitBounds(bounds, { padding: [38, 38], maxZoom: 8 });
+  window.setTimeout(() => overviewMap?.invalidateSize(), 30);
+  status.textContent = routes || targets ? `${routes} GPX-${routes === 1 ? "Strecke" : "Strecken"} und ${targets} Ziele auf der Karte.` : "Sobald GPX-Strecken oder Zielkoordinaten gepflegt sind, erscheinen sie hier.";
 }
 
 function renderAdminSelectors() {
@@ -957,6 +1019,7 @@ function renderAdminTourList() {
         <small>${safe(tour.type === "run" ? "Laufen" : "Radfahren")} · ${formatKm(tour.distance)} · ${dateLabel(tour.date)} ${tour.published === false ? "· Entwurf" : ""}</small>
       </div>
       <div class="admin-row-actions">
+        ${tour.published !== false ? `<button class="small-btn" type="button" data-copy-tour="${safe(tour.id)}">Link kopieren</button>` : ""}
         <button class="small-btn" type="button" data-edit-tour="${safe(tour.id)}">Bearbeiten</button>
         <button class="small-btn" type="button" data-delete-tour="${safe(tour.id)}">Löschen</button>
       </div>
@@ -965,6 +1028,10 @@ function renderAdminTourList() {
 
   $$("[data-edit-tour]").forEach((button) => button.addEventListener("click", () => editTour(button.dataset.editTour)));
   $$("[data-delete-tour]").forEach((button) => button.addEventListener("click", () => deleteTour(button.dataset.deleteTour)));
+  $$("[data-copy-tour]").forEach((button) => button.addEventListener("click", async () => {
+    await navigator.clipboard.writeText(tourShareUrl(button.dataset.copyTour));
+    button.textContent = "Kopiert ✓";
+  }));
 }
 
 function renderAdminMilestoneList() {
@@ -1118,6 +1185,10 @@ function editMilestone(id) {
   $("#milestoneTargetDistance").value = milestone.targetDistance || "";
   $("#milestoneActualDistance").value = milestone.actualDistance || "";
   $("#milestoneCompletedDate").value = milestone.completedDate || "";
+  $("#milestonePlannedDate").value = milestone.plannedDate || "";
+  $("#milestonePreparationPercent").value = milestone.preparationPercent || "";
+  $("#milestoneLatitude").value = milestone.latitude ?? "";
+  $("#milestoneLongitude").value = milestone.longitude ?? "";
   $("#milestoneDuration").value = milestone.duration || "";
   $("#milestoneSpeed").value = milestone.speed || "";
   $("#milestoneElevation").value = milestone.elevation || "";
@@ -1253,6 +1324,13 @@ function bindEvents() {
     modal.addEventListener("click", (event) => {
       if (event.target === modal) hideModal(modal.id);
     });
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    const visible = document.querySelector(".modal-backdrop:not(.hidden)");
+    if (visible) hideModal(visible.id);
+    else if (!$("#mobileMenu").classList.contains("hidden")) hideModal("mobileMenu");
   });
 
   $$("[data-close]").forEach((button) => {
@@ -1404,6 +1482,10 @@ function bindEvents() {
       targetDistance: numeric($("#milestoneTargetDistance").value),
       actualDistance: numeric($("#milestoneActualDistance").value),
       completedDate: $("#milestoneCompletedDate").value,
+      plannedDate: $("#milestonePlannedDate").value,
+      preparationPercent: Math.max(0, Math.min(100, numeric($("#milestonePreparationPercent").value))),
+      latitude: $("#milestoneLatitude").value === "" ? null : numeric($("#milestoneLatitude").value),
+      longitude: $("#milestoneLongitude").value === "" ? null : numeric($("#milestoneLongitude").value),
       duration: $("#milestoneDuration").value,
       speed: $("#milestoneSpeed").value,
       elevation: numeric($("#milestoneElevation").value),
@@ -1535,6 +1617,8 @@ function setupFirebaseListeners() {
     return;
   }
 
+  renderAll();
+
   onAuthStateChanged(auth, (user) => {
     currentUser = user;
     const isAdmin = user?.email === ADMIN_EMAIL;
@@ -1544,21 +1628,25 @@ function setupFirebaseListeners() {
 
   onSnapshot(query(collection(db, "tours"), orderBy("date", "desc")), (snapshot) => {
     tours = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+    loadState.tours = true;
     renderAll();
   });
 
   onSnapshot(query(collection(db, "milestones"), orderBy("order", "asc")), (snapshot) => {
     milestones = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+    loadState.milestones = true;
     renderAll();
   });
 
   onSnapshot(query(collection(db, "challenges"), orderBy("order", "asc")), (snapshot) => {
     challenges = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+    loadState.challenges = true;
     renderAll();
   });
 
   onSnapshot(query(collection(db, "galleryItems"), orderBy("order", "asc")), (snapshot) => {
     galleryItems = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+    loadState.gallery = true;
     renderAll();
   });
 
@@ -1571,14 +1659,30 @@ function setupFirebaseListeners() {
   });
 }
 
+function setupScrollSpy() {
+  const sections = $$("main section[id]");
+  const links = $$('a[href^="#"]');
+  const observer = new IntersectionObserver((entries) => {
+    const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+    if (!visible) return;
+    links.forEach((link) => link.classList.toggle("active", link.getAttribute("href") === `#${visible.target.id}`));
+  }, { rootMargin: "-25% 0px -60%", threshold: [0, .25, .6] });
+  sections.forEach((section) => observer.observe(section));
+}
+
 function init() {
   document.documentElement.dataset.theme = localStorage.getItem("yot-theme") || "light";
   bindEvents();
+  setupScrollSpy();
   resetTourForm();
   resetMilestoneForm();
   resetChallengeForm();
   resetGalleryForm();
   setupFirebaseListeners();
+  window.addEventListener("hashchange", () => {
+    if (location.hash.startsWith("#tour=")) openTourFromHash();
+    else if (!$("#tourModal").classList.contains("hidden")) hideModal("tourModal");
+  });
   window.addEventListener("resize", () => renderGallery());
 }
 
