@@ -1,4 +1,14 @@
-# Younes on Tour – App V2
+# Younes on Tour – App V4
+
+## Neu in Version 4
+
+- Zentrale Karte mit GPX-Strecken und geplanten Roadmap-Zielen
+- Vorschau auf das nächste Abenteuer mit Termin und Vorbereitungsstand
+- Teilbare Tour-Links (`#tour=…`) inklusive Teilen/Kopieren
+- Datenschutzfreundliche YouTube-Einbettung über `youtube-nocookie.com`
+- SEO-Metadaten, Manifest, Favicon, Sitemap, Scrollspy und zugänglichere Dialoge
+
+Für Kartenpunkte können bei einem Meilenstein Breiten- und Längengrad gepflegt werden. Venlo, Xanten, Amsterdam, Paris und Gardasee werden auch ohne Koordinaten erkannt. Änderungen an `firestore.rules` müssen zusätzlich über Firebase CLI oder Console deployed werden.
 
 Diese Version ist eine statische Web-App für GitHub Pages. Kein Next.js, keine GitHub Actions, kein Build-Prozess.
 
