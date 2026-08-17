@@ -13,6 +13,7 @@ Diese Version ist eine statische Web-App für GitHub Pages. Kein Next.js, keine 
 - klickbare Tour-Karten mit Detailansicht
 - klickbare Challenges mit Fortschritt
 - GPX-Karten über OpenStreetMap/Leaflet
+- sichere Strava-Einbettungen für Touren, Meilensteine und Challenges
 - Galerie aus Tourbildern
 - Adminbereich für:
   - Hero-Titel, Untertext und Hero-Bild
@@ -123,6 +124,12 @@ https://DEINNAME.github.io/younes-on-tour/gpx/venlo.gpx
 ```
 
 Diesen Link trägst du im Adminbereich bei Tour oder Meilenstein als GPX-Link ein.
+
+## Strava-Einbettungen
+
+Bei Touren, Meilensteinen und Challenges kannst du den vollständigen Strava-Einbettungscode direkt in das jeweilige Feld kopieren. Die Aktivität wird anschließend inklusive der von Strava bereitgestellten Medien in der Detailansicht angezeigt.
+
+Die Anwendung übernimmt aus dem eingefügten Code ausschließlich die Strava-Aktivitäts-ID und das zugehörige Token. Beliebiges HTML oder JavaScript aus dem Eingabefeld wird nicht ausgeführt.
 
 
 ## Update 2.2 – kumulierte Kilometer und getrennte Meilensteine

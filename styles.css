@@ -773,6 +773,18 @@ button{cursor:pointer}
   font-weight:900;
 }
 .detail-actions a.primary-link{background:var(--accent);color:#fff;border-color:var(--accent)}
+.strava-embed-shell{
+  width:100%;
+  max-width:590px;
+  min-height:180px;
+  margin:26px auto 8px;
+  overflow:hidden;
+  border-radius:16px;
+  background:var(--surface2);
+}
+.strava-embed-shell iframe{
+  max-width:100%!important;
+}
 .detail-gallery{
   display:grid;
   grid-template-columns:repeat(3,1fr);
@@ -889,6 +901,14 @@ button{cursor:pointer}
 }
 .admin-form .wide{grid-column:1/-1}
 .admin-form textarea{resize:vertical}
+.field-help{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:650;
+  line-height:1.45;
+  letter-spacing:normal;
+  text-transform:none;
+}
 .check{
   display:flex!important;
   align-items:center;

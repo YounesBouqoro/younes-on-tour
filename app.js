@@ -210,6 +210,59 @@ function nl2br(value) {
   return safe(value).replace(/\n/g, "<br>");
 }
 
+function parseStravaEmbed(value) {
+  if (!value) return null;
+
+  if (typeof value === "object") {
+    const id = String(value.id || "").trim();
+    const token = String(value.token || "").trim();
+    if (!/^\d+$/.test(id)) return null;
+    if (token && !/^[A-Za-z0-9_-]+$/.test(token)) return null;
+    return { id, token };
+  }
+
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  const parsedDocument = new DOMParser().parseFromString(raw, "text/html");
+  const placeholder = parsedDocument.querySelector(".strava-embed-placeholder");
+  const activityUrlMatch = raw.match(/strava\.com\/activities\/(\d+)/i);
+  const id = String(placeholder?.dataset.embedId || activityUrlMatch?.[1] || "").trim();
+  const token = String(placeholder?.dataset.token || "").trim();
+
+  if (!/^\d+$/.test(id)) return null;
+  if (token && !/^[A-Za-z0-9_-]+$/.test(token)) return null;
+
+  return { id, token };
+}
+
+function stravaEmbedCode(value) {
+  const embed = parseStravaEmbed(value);
+  if (!embed) return "";
+  const tokenAttribute = embed.token ? ` data-token="${embed.token}"` : "";
+  return `<div class="strava-embed-placeholder" data-embed-type="activity" data-embed-id="${embed.id}" data-style="standard" data-from-embed="false"${tokenAttribute}></div><script src="https://strava-embeds.com/embed.js"></script>`;
+}
+
+function stravaEmbedMarkup(value) {
+  const embed = parseStravaEmbed(value);
+  if (!embed) return "";
+  const tokenAttribute = embed.token ? ` data-token="${embed.token}"` : "";
+  return `<div class="strava-embed-shell"><div class="strava-embed-placeholder" data-embed-type="activity" data-embed-id="${embed.id}" data-style="standard" data-from-embed="false"${tokenAttribute}></div></div>`;
+}
+
+function refreshStravaEmbeds() {
+  window.setTimeout(() => {
+    if (!document.querySelector(".strava-embed-placeholder")) return;
+
+    document.querySelectorAll("script[data-yot-strava-embed]").forEach((script) => script.remove());
+    const script = document.createElement("script");
+    script.src = "https://strava-embeds.com/embed.js";
+    script.async = true;
+    script.dataset.yotStravaEmbed = "true";
+    document.body.appendChild(script);
+  }, 0);
+}
+
 function numeric(value) {
   const n = Number(value || 0);
   return Number.isFinite(n) ? n : 0;
@@ -702,6 +755,7 @@ function openMilestone(id) {
         <div class="insight-metric"><span>Zählt als Abenteuer</span><strong>${isLinkedToPublishedTour ? "Über Tour gezählt" : (milestone.countAsAdventure !== false ? "Ja" : "Nein")}</strong></div>
       </div>
       <p class="detail-text">${safe(milestone.story || milestone.subtitle || "Noch keine Streckeninfos gepflegt.")}</p>
+      ${stravaEmbedMarkup(milestone.stravaEmbed)}
       ${relatedTours.length ? `
         <h3>Zugeordnete Touren</h3>
         <div class="detail-actions">
@@ -717,6 +771,7 @@ function openMilestone(id) {
   `;
 
   showModal("insightModal");
+  refreshStravaEmbeds();
   $$("#insightContent [data-open-related-tour]").forEach((button) => {
     button.addEventListener("click", () => {
       hideModal("insightModal");
@@ -745,9 +800,11 @@ function openChallenge(id) {
       </div>
       <div class="challenge-progress" style="margin-top:22px"><span style="width:${percent}%"></span></div>
       <p class="detail-text">${safe(challenge.description || "Keine Beschreibung gepflegt.")}</p>
+      ${stravaEmbedMarkup(challenge.stravaEmbed)}
     </div>
   `;
   showModal("insightModal");
+  refreshStravaEmbeds();
 }
 
 
@@ -807,6 +864,7 @@ function openTour(id) {
       </div>
       <p class="detail-text">${safe(tour.story || "")}</p>
       ${tour.learnings ? `<h3>Fazit & Learnings</h3><p class="detail-text">${safe(tour.learnings)}</p>` : ""}
+      ${stravaEmbedMarkup(tour.stravaEmbed)}
       <div class="detail-actions">
         ${tour.activityUrl ? `<a class="primary-link" href="${safe(tour.activityUrl)}" target="_blank" rel="noreferrer">Aktivität öffnen</a>` : ""}
         ${tour.videoUrl ? `<a href="${safe(tour.videoUrl)}" target="_blank" rel="noreferrer">Video ansehen</a>` : ""}
@@ -818,6 +876,7 @@ function openTour(id) {
   `;
 
   showModal("tourModal");
+  refreshStravaEmbeds();
   if (tour.gpxUrl) setTimeout(() => renderGpxMap(tour.gpxUrl), 100);
 }
 
@@ -1019,6 +1078,7 @@ function editTour(id) {
   $("#tourCoverUrl").value = tour.coverUrl || "";
   $("#tourGalleryUrls").value = Array.isArray(tour.galleryUrls) ? tour.galleryUrls.join("\n") : "";
   $("#tourActivityUrl").value = tour.activityUrl || "";
+  $("#tourStravaEmbed").value = stravaEmbedCode(tour.stravaEmbed);
   $("#tourVideoUrl").value = tour.videoUrl || "";
   $("#tourGpxUrl").value = tour.gpxUrl || "";
   $("#tourStory").value = tour.story || "";
@@ -1067,6 +1127,7 @@ function editMilestone(id) {
   $("#milestoneCoverUrl").value = milestone.coverUrl || "";
   $("#milestoneGpxUrl").value = milestone.gpxUrl || "";
   $("#milestoneActivityUrl").value = milestone.activityUrl || "";
+  $("#milestoneStravaEmbed").value = stravaEmbedCode(milestone.stravaEmbed);
   $("#milestoneCountInStats").checked = milestone.countInStats !== false;
   $("#milestoneCountAsAdventure").checked = milestone.countAsAdventure !== false;
 
@@ -1100,6 +1161,7 @@ function editChallenge(id) {
   $("#challengeTarget").value = challenge.target || "";
   $("#challengeCurrent").value = challenge.current || "";
   $("#challengeDescription").value = challenge.description || "";
+  $("#challengeStravaEmbed").value = stravaEmbedCode(challenge.stravaEmbed);
   $("#challengePublished").checked = challenge.published !== false;
 
   openAdminTab("challenges");
@@ -1278,6 +1340,13 @@ function bindEvents() {
     event.preventDefault();
     if (!firebaseReady) return alert("Firebase ist noch nicht konfiguriert.");
 
+    const stravaEmbedInput = $("#tourStravaEmbed").value.trim();
+    const stravaEmbed = parseStravaEmbed(stravaEmbedInput);
+    if (stravaEmbedInput && !stravaEmbed) {
+      $("#tourStatus").textContent = "Der Strava-Einbettungscode ist ungültig. Bitte den vollständigen Code aus Strava einfügen.";
+      return;
+    }
+
     const payload = {
       title: $("#tourTitle").value,
       type: $("#tourType").value,
@@ -1292,6 +1361,7 @@ function bindEvents() {
       coverUrl: $("#tourCoverUrl").value,
       galleryUrls: $("#tourGalleryUrls").value.split("\n").map((x) => x.trim()).filter(Boolean),
       activityUrl: $("#tourActivityUrl").value,
+      stravaEmbed,
       videoUrl: $("#tourVideoUrl").value,
       gpxUrl: $("#tourGpxUrl").value,
       story: $("#tourStory").value,
@@ -1317,6 +1387,13 @@ function bindEvents() {
     event.preventDefault();
     if (!firebaseReady) return alert("Firebase ist noch nicht konfiguriert.");
 
+    const stravaEmbedInput = $("#milestoneStravaEmbed").value.trim();
+    const stravaEmbed = parseStravaEmbed(stravaEmbedInput);
+    if (stravaEmbedInput && !stravaEmbed) {
+      $("#milestoneStatus").textContent = "Der Strava-Einbettungscode ist ungültig. Bitte den vollständigen Code aus Strava einfügen.";
+      return;
+    }
+
     const payload = {
       title: $("#milestoneTitle").value,
       icon: $("#milestoneIcon").value,
@@ -1336,6 +1413,7 @@ function bindEvents() {
       coverUrl: $("#milestoneCoverUrl").value,
       gpxUrl: $("#milestoneGpxUrl").value,
       activityUrl: $("#milestoneActivityUrl").value,
+      stravaEmbed,
       countInStats: $("#milestoneCountInStats").checked,
       countAsAdventure: $("#milestoneCountAsAdventure").checked,
       updatedAt: serverTimestamp()
@@ -1372,6 +1450,13 @@ function bindEvents() {
     event.preventDefault();
     if (!firebaseReady) return alert("Firebase ist noch nicht konfiguriert.");
 
+    const stravaEmbedInput = $("#challengeStravaEmbed").value.trim();
+    const stravaEmbed = parseStravaEmbed(stravaEmbedInput);
+    if (stravaEmbedInput && !stravaEmbed) {
+      $("#challengeStatus").textContent = "Der Strava-Einbettungscode ist ungültig. Bitte den vollständigen Code aus Strava einfügen.";
+      return;
+    }
+
     const payload = {
       title: $("#challengeTitle").value,
       icon: $("#challengeIcon").value,
@@ -1380,6 +1465,7 @@ function bindEvents() {
       target: numeric($("#challengeTarget").value),
       current: numeric($("#challengeCurrent").value),
       description: $("#challengeDescription").value,
+      stravaEmbed,
       published: $("#challengePublished").checked,
       updatedAt: serverTimestamp()
     };
