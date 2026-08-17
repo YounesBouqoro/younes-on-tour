@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://younesbouqoro.github.io/younes-on-tour/sitemap.xml
