@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://www.gstatic.com">
   <link rel="preconnect" href="https://unpkg.com">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="styles.css?v=2.6">
+  <link rel="stylesheet" href="styles.css?v=2.7">
 </head>
 
 <body>
@@ -253,6 +253,10 @@
           <label class="wide">Titelbild-URL<input id="tourCoverUrl"></label>
           <label class="wide">Galerie-URLs<textarea id="tourGalleryUrls" rows="4" placeholder="Eine URL pro Zeile"></textarea></label>
           <label class="wide">Strava-/Komoot-Link<input id="tourActivityUrl"></label>
+          <label class="wide">Strava-Einbettungscode
+            <textarea id="tourStravaEmbed" rows="5" placeholder="Strava-Code vollständig hier einfügen"></textarea>
+            <small class="field-help">Den vollständigen Einbettungscode aus Strava kopieren. Aktivitätsdaten und Strava-Medien erscheinen anschließend direkt in der Tour.</small>
+          </label>
           <label class="wide">YouTube-/Video-Link<input id="tourVideoUrl"></label>
           <label class="wide">GPX-Link<input id="tourGpxUrl"></label>
           <label class="wide">Tourbericht<textarea id="tourStory" rows="7" required></textarea></label>
@@ -304,6 +308,10 @@
           <label class="wide">Titelbild-URL<input id="milestoneCoverUrl"></label>
           <label class="wide">GPX-Link<input id="milestoneGpxUrl"></label>
           <label class="wide">Strava-/Komoot-Link<input id="milestoneActivityUrl"></label>
+          <label class="wide">Strava-Einbettungscode
+            <textarea id="milestoneStravaEmbed" rows="5" placeholder="Strava-Code vollständig hier einfügen"></textarea>
+            <small class="field-help">Der Strava-Inhalt wird direkt in der Detailansicht des Meilensteins angezeigt.</small>
+          </label>
           <label class="check wide"><input id="milestoneCountInStats" type="checkbox" checked> Erledigte KM in Gesamt-KM und Hochrechnung berücksichtigen</label>
           <label class="check wide"><input id="milestoneCountAsAdventure" type="checkbox" checked> Als Abenteuer zählen, wenn erledigt</label>
           <div class="wide admin-form-actions">
@@ -339,6 +347,10 @@
           <label>Zielwert<input id="challengeTarget" type="number" step="0.01" required></label>
           <label>Aktueller Wert bei manuell<input id="challengeCurrent" type="number" step="0.01"></label>
           <label class="wide">Beschreibung<textarea id="challengeDescription" rows="4"></textarea></label>
+          <label class="wide">Strava-Einbettungscode
+            <textarea id="challengeStravaEmbed" rows="5" placeholder="Strava-Code vollständig hier einfügen"></textarea>
+            <small class="field-help">Optional: Eine passende Strava-Aktivität inklusive Medien in der Challenge anzeigen.</small>
+          </label>
           <label class="check wide"><input id="challengePublished" type="checkbox" checked> Öffentlich anzeigen</label>
           <div class="wide admin-form-actions">
             <button class="primary-btn" type="submit">Challenge speichern</button>
@@ -410,6 +422,6 @@
   </section>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script type="module" src="app.js?v=2.6"></script>
+  <script type="module" src="app.js?v=2.7"></script>
 </body>
 </html>
