@@ -1,35 +1,15 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    function isAdmin() {
-      return request.auth != null
-        && request.auth.token.email == "younesbouqoro@gmail.com";
-    }
-
-    match /tours/{id} {
-      allow read: if resource.data.published == true || isAdmin();
-      allow create, update, delete: if isAdmin();
-    }
-
-    match /milestones/{id} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin();
-    }
-
-    match /challenges/{id} {
-      allow read: if resource.data.published == true || isAdmin();
-      allow create, update, delete: if isAdmin();
-    }
-
-    match /site/{id} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin();
-    }
-
-    match /galleryItems/{id} {
-      allow read: if resource.data.published == true || isAdmin();
-      allow create, update, delete: if isAdmin();
-    }
+    function isAdmin() { return request.auth != null && request.auth.token.email == "younesbouqoro@gmail.com"; }
+    function validTour(data) { return data.title is string && data.title.size() > 0 && data.title.size() <= 160 && data.type in ["bike", "run"] && data.distance is number && data.distance >= 0 && data.published is bool; }
+    function validMilestone(data) { return data.title is string && data.title.size() > 0 && data.title.size() <= 160 && data.sportType in ["bike", "run"] && data.completed is bool && data.order is number && (!data.keys().hasAny(["preparationPercent"]) || (data.preparationPercent is number && data.preparationPercent >= 0 && data.preparationPercent <= 100)) && (!data.keys().hasAny(["latitude"]) || data.latitude == null || (data.latitude is number && data.latitude >= -90 && data.latitude <= 90)) && (!data.keys().hasAny(["longitude"]) || data.longitude == null || (data.longitude is number && data.longitude >= -180 && data.longitude <= 180)); }
+    function validChallenge(data) { return data.title is string && data.title.size() > 0 && data.target is number && data.target >= 0 && data.published is bool; }
+    function validGallery(data) { return data.title is string && data.url is string && data.url.size() > 0 && data.published is bool && data.mediaType in ["image", "video"] && data.displayTarget in ["both", "desktop", "mobile"]; }
+    match /tours/{id} { allow read: if resource.data.published == true || isAdmin(); allow create, update: if isAdmin() && validTour(request.resource.data); allow delete: if isAdmin(); }
+    match /milestones/{id} { allow read: if true; allow create, update: if isAdmin() && validMilestone(request.resource.data); allow delete: if isAdmin(); }
+    match /challenges/{id} { allow read: if resource.data.published == true || isAdmin(); allow create, update: if isAdmin() && validChallenge(request.resource.data); allow delete: if isAdmin(); }
+    match /galleryItems/{id} { allow read: if resource.data.published == true || isAdmin(); allow create, update: if isAdmin() && validGallery(request.resource.data); allow delete: if isAdmin(); }
+    match /site/{id} { allow read: if true; allow write: if isAdmin() && request.resource.data.heroTitle is string && request.resource.data.heroSubtitle is string && request.resource.data.heroImage is string; }
   }
 }
