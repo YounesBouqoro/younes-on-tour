@@ -937,7 +937,7 @@ function openGalleryItem(id) {
       <p class="eyebrow accent">GALERIE · ${safe(targetLabel(item.displayTarget))}</p>
       <h2>${safe(item.title || "Galerie")}</h2>
       <p class="detail-text">${safe(item.description || "")}</p>
-      ${item.tourId ? `<div class="detail-actions"><button class="primary-btn" type="button" data-open-gallery-tour="${safe(item.tourId)}">Verknüpfte Tour öffnen</button></div>` : ""}
+      ${item.tourId || item.milestoneId ? `<div class="detail-actions">${item.tourId ? `<button class="primary-btn" type="button" data-open-gallery-tour="${safe(item.tourId)}">Verknüpfte Tour öffnen</button>` : ""}${item.milestoneId ? `<button class="primary-btn" type="button" data-open-gallery-milestone="${safe(item.milestoneId)}">Meilenstein öffnen</button>` : ""}</div>` : ""}
     </div>
   `;
 
@@ -948,6 +948,13 @@ function openGalleryItem(id) {
     tourButton.addEventListener("click", () => {
       hideModal("insightModal");
       openTour(tourButton.dataset.openGalleryTour);
+    });
+  }
+  const milestoneButton = $("#insightContent [data-open-gallery-milestone]");
+  if (milestoneButton) {
+    milestoneButton.addEventListener("click", () => {
+      hideModal("insightModal");
+      openMilestone(milestoneButton.dataset.openGalleryMilestone);
     });
   }
 }
