@@ -23,7 +23,7 @@
   <link rel="preconnect" href="https://www.gstatic.com">
   <link rel="preconnect" href="https://unpkg.com">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="styles.css?v=4.1">
+  <link rel="stylesheet" href="styles.css?v=4.2">
   <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -307,8 +307,22 @@
               <option value="">Keinem Meilenstein zuordnen</option>
             </select>
           </label>
-          <label class="wide">Titelbild-URL<input id="tourCoverUrl"></label>
-          <label class="wide">Galerie-URLs<textarea id="tourGalleryUrls" rows="4" placeholder="Eine URL pro Zeile"></textarea></label>
+          <input id="tourCoverUrl" type="hidden">
+          <textarea id="tourGalleryUrls" class="hidden" aria-hidden="true"></textarea>
+          <div class="wide media-upload-section">
+            <div class="media-upload-head">
+              <div><strong>Titelbild</strong><span>Bild direkt vom Gerät auswählen.</span></div>
+              <label class="media-upload-button">Bild auswählen<input id="tourCoverFile" type="file" accept="image/*"></label>
+            </div>
+            <div id="tourCoverPreview" class="media-preview empty-media-preview">Noch kein Titelbild ausgewählt.</div>
+          </div>
+          <div class="wide media-upload-section">
+            <div class="media-upload-head">
+              <div><strong>Fotos & Videos</strong><span>Mehrere Dateien gleichzeitig auswählen. Sie werden automatisch der Tour zugeordnet.</span></div>
+              <label class="media-upload-button">Medien auswählen<input id="tourMediaFiles" type="file" accept="image/*,video/*" multiple></label>
+            </div>
+            <div id="tourMediaPreview" class="media-preview-grid"></div>
+          </div>
           <label class="wide">Strava-/Komoot-Link<input id="tourActivityUrl"></label>
           <label class="wide">Strava-Einbettungscode
             <textarea id="tourStravaEmbed" rows="5" placeholder="Strava-Code vollständig hier einfügen"></textarea>
@@ -345,7 +359,14 @@
               <option value="run">Laufen</option>
             </select>
           </label>
-          <label class="wide">Wahrzeichen-Bild-URL optional<input id="milestoneImageUrl" placeholder="https://..."></label>
+          <input id="milestoneImageUrl" type="hidden">
+          <div class="wide media-upload-section">
+            <div class="media-upload-head">
+              <div><strong>Roadmap-Bild / Wahrzeichen</strong><span>Optionales Bild direkt vom Gerät auswählen.</span></div>
+              <label class="media-upload-button">Bild auswählen<input id="milestoneImageFile" type="file" accept="image/*"></label>
+            </div>
+            <div id="milestoneImagePreview" class="media-preview small empty-media-preview">Noch kein Roadmap-Bild ausgewählt.</div>
+          </div>
           <label>Reihenfolge<input id="milestoneOrder" type="number" required></label>
           <label>Status
             <select id="milestoneCompleted">
@@ -366,7 +387,21 @@
           <label>Ziel-Längengrad<input id="milestoneLongitude" type="number" step="any" placeholder="z. B. 4.9041"></label>
           <label class="wide">Kurzbeschreibung<input id="milestoneSubtitle" placeholder="Erste Auslandstour"></label>
           <label class="wide">Streckeninfos / Bericht<textarea id="milestoneStory" rows="6"></textarea></label>
-          <label class="wide">Titelbild-URL<input id="milestoneCoverUrl"></label>
+          <input id="milestoneCoverUrl" type="hidden">
+          <div class="wide media-upload-section">
+            <div class="media-upload-head">
+              <div><strong>Titelbild</strong><span>Großes Titelbild für die Detailansicht.</span></div>
+              <label class="media-upload-button">Bild auswählen<input id="milestoneCoverFile" type="file" accept="image/*"></label>
+            </div>
+            <div id="milestoneCoverPreview" class="media-preview empty-media-preview">Noch kein Titelbild ausgewählt.</div>
+          </div>
+          <div class="wide media-upload-section">
+            <div class="media-upload-head">
+              <div><strong>Fotos & Videos</strong><span>Mehrere Medien auswählen. Sie werden automatisch dem Meilenstein zugeordnet.</span></div>
+              <label class="media-upload-button">Medien auswählen<input id="milestoneMediaFiles" type="file" accept="image/*,video/*" multiple></label>
+            </div>
+            <div id="milestoneMediaPreview" class="media-preview-grid"></div>
+          </div>
           <label class="wide">GPX-Link<input id="milestoneGpxUrl"></label>
           <label class="wide">Strava-/Komoot-Link<input id="milestoneActivityUrl"></label>
           <label class="wide">Strava-Einbettungscode
@@ -424,8 +459,8 @@
 
       <div id="galleryTab" class="admin-tab-content hidden">
         <div class="hint-card">
-          <strong>Galerie ohne Firebase Storage.</strong>
-          <span>Lade Bilder oder Videos kostenlos in dein GitHub-Repository hoch, zum Beispiel in <code>media/galerie/</code>. Hier speicherst du nur den Link, Titel und ob der Eintrag auf Desktop, Mobil oder überall angezeigt werden soll.</span>
+          <strong>Medien direkt hochladen.</strong>
+          <span>Wähle Bilder oder Videos direkt auf deinem Gerät aus. Die Datei wird automatisch gespeichert und kann einer Tour oder einem Meilenstein zugeordnet werden.</span>
         </div>
 
         <form id="galleryForm" class="admin-form">
@@ -455,12 +490,20 @@
               <option value="">Keine Tour</option>
             </select>
           </label>
-
-          <label class="wide">Medien-Link
-            <input id="galleryMediaUrl" placeholder="media/galerie/venlo-1.jpg oder media/galerie/venlo-video.mp4" required>
+          <label>Mit Meilenstein verknüpfen
+            <select id="galleryMilestoneId">
+              <option value="">Kein Meilenstein</option>
+            </select>
           </label>
 
-          <div class="wide upload-preview hidden" id="galleryUploadPreview"></div>
+          <input id="galleryMediaUrl" type="hidden">
+          <div class="wide media-upload-section">
+            <div class="media-upload-head">
+              <div><strong>Datei</strong><span>Foto oder Video direkt auswählen. Beim Bearbeiten kann die vorhandene Datei beibehalten werden.</span></div>
+              <label class="media-upload-button">Datei auswählen<input id="galleryMediaFile" type="file" accept="image/*,video/*"></label>
+            </div>
+            <div id="galleryUploadPreview" class="media-preview empty-media-preview">Noch keine Datei ausgewählt.</div>
+          </div>
 
           <label class="wide">Beschreibung
             <textarea id="galleryDescription" rows="4" placeholder="Optionaler kurzer Text"></textarea>
@@ -483,6 +526,6 @@
   </section>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script type="module" src="app.js?v=4.1"></script>
+  <script type="module" src="app.js?v=4.2"></script>
 </body>
 </html>
