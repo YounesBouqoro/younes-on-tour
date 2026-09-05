@@ -23,7 +23,7 @@
   <link rel="preconnect" href="https://www.gstatic.com">
   <link rel="preconnect" href="https://unpkg.com">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="styles.css?v=4.0">
+  <link rel="stylesheet" href="styles.css?v=4.1">
   <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -177,7 +177,10 @@
           <span><i class="legend-dot planned"></i> Geplant</span>
         </div>
       </div>
-      <div id="overviewMap" class="overview-map" role="region" aria-label="Interaktive Karte aller Touren und Ziele"></div>
+      <div id="overviewMapShell" class="overview-map-shell">
+        <div id="overviewMap" class="overview-map" role="region" aria-label="Interaktive Karte aller Touren und Ziele"></div>
+        <button id="mapInteractionToggle" class="map-interaction-toggle" type="button" aria-pressed="false">Karte bewegen</button>
+      </div>
       <p id="overviewMapStatus" class="map-status" aria-live="polite">Tourenkarte wird geladen …</p>
     </section>
 
@@ -480,6 +483,6 @@
   </section>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script type="module" src="app.js?v=4.0"></script>
+  <script type="module" src="app.js?v=4.1"></script>
 </body>
 </html>
