@@ -1599,49 +1599,80 @@ function bindEvents() {
     $("#siteStatus").textContent = "Startseite gespeichert.";
   });
 
+  $("#tourCoverFile").addEventListener("change", (event) => renderFilePreview(event.target.files?.[0], "#tourCoverPreview"));
+  $("#tourMediaFiles").addEventListener("change", (event) => renderFilesPreview(event.target.files || [], "#tourMediaPreview"));
+  $("#milestoneImageFile").addEventListener("change", (event) => renderFilePreview(event.target.files?.[0], "#milestoneImagePreview"));
+  $("#milestoneCoverFile").addEventListener("change", (event) => renderFilePreview(event.target.files?.[0], "#milestoneCoverPreview"));
+  $("#milestoneMediaFiles").addEventListener("change", (event) => renderFilesPreview(event.target.files || [], "#milestoneMediaPreview"));
+  $("#galleryMediaFile").addEventListener("change", (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    $("#galleryMediaType").value = mediaTypeFromFile(file);
+    renderFilePreview(file, "#galleryUploadPreview");
+  });
+  $("#galleryTourId").addEventListener("change", () => { if ($("#galleryTourId").value) $("#galleryMilestoneId").value = ""; });
+  $("#galleryMilestoneId").addEventListener("change", () => { if ($("#galleryMilestoneId").value) $("#galleryTourId").value = ""; });
+
   $("#tourForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!firebaseReady) return alert("Firebase ist noch nicht konfiguriert.");
-
+    const status = $("#tourStatus");
     const stravaEmbedInput = $("#tourStravaEmbed").value.trim();
     const stravaEmbed = parseStravaEmbed(stravaEmbedInput);
     if (stravaEmbedInput && !stravaEmbed) {
-      $("#tourStatus").textContent = "Der Strava-Einbettungscode ist ungültig. Bitte den vollständigen Code aus Strava einfügen.";
+      status.textContent = "Der Strava-Einbettungscode ist ungültig. Bitte den vollständigen Code aus Strava einfügen.";
       return;
     }
 
-    const payload = {
-      title: $("#tourTitle").value,
-      type: $("#tourType").value,
-      date: $("#tourDate").value,
-      route: $("#tourRoute").value,
-      distance: numeric($("#tourDistance").value),
-      duration: $("#tourDuration").value,
-      speed: $("#tourSpeed").value,
-      elevation: numeric($("#tourElevation").value),
-      heartRate: numeric($("#tourHeartRate").value),
-      milestoneId: $("#tourMilestoneId").value,
-      coverUrl: $("#tourCoverUrl").value,
-      galleryUrls: $("#tourGalleryUrls").value.split("\n").map((x) => x.trim()).filter(Boolean),
-      activityUrl: $("#tourActivityUrl").value,
-      stravaEmbed,
-      videoUrl: $("#tourVideoUrl").value,
-      gpxUrl: $("#tourGpxUrl").value,
-      story: $("#tourStory").value,
-      learnings: $("#tourLearnings").value,
-      published: $("#tourPublished").checked,
-      updatedAt: serverTimestamp()
-    };
+    const existingId = $("#tourId").value;
+    const existing = tours.find((item) => item.id === existingId) || {};
+    const targetRef = existingId ? doc(db, "tours", existingId) : doc(collection(db, "tours"));
+    try {
+      let coverUrl = $("#tourCoverUrl").value || existing.coverUrl || "";
+      let coverStoragePath = existing.coverStoragePath || "";
+      const coverFile = $("#tourCoverFile").files?.[0];
+      if (coverFile) {
+        const uploadedCover = await uploadMediaFile(coverFile, `tours/${targetRef.id}/cover`, status, "Titelbild");
+        coverUrl = uploadedCover.url;
+        coverStoragePath = uploadedCover.storagePath;
+      }
 
-    const id = $("#tourId").value;
-    if (id) {
-      await updateDoc(doc(db, "tours", id), payload);
-    } else {
-      await addDoc(collection(db, "tours"), { ...payload, createdAt: serverTimestamp() });
+      const existingMedia = entityMedia(existing);
+      const newMedia = await uploadMediaList([...( $("#tourMediaFiles").files || [] )], `tours/${targetRef.id}/media`, status);
+      const media = [...existingMedia, ...newMedia];
+
+      const payload = {
+        title: $("#tourTitle").value,
+        type: $("#tourType").value,
+        date: $("#tourDate").value,
+        route: $("#tourRoute").value,
+        distance: numeric($("#tourDistance").value),
+        duration: $("#tourDuration").value,
+        speed: $("#tourSpeed").value,
+        elevation: numeric($("#tourElevation").value),
+        heartRate: numeric($("#tourHeartRate").value),
+        milestoneId: $("#tourMilestoneId").value,
+        coverUrl,
+        coverStoragePath,
+        media,
+        galleryUrls: media.filter((item) => item.mediaType === "image").map((item) => item.url),
+        activityUrl: $("#tourActivityUrl").value,
+        stravaEmbed,
+        videoUrl: $("#tourVideoUrl").value,
+        gpxUrl: $("#tourGpxUrl").value,
+        story: $("#tourStory").value,
+        learnings: $("#tourLearnings").value,
+        published: $("#tourPublished").checked,
+        updatedAt: serverTimestamp()
+      };
+      if (existingId) await updateDoc(targetRef, payload);
+      else await setDoc(targetRef, { ...payload, createdAt: serverTimestamp() });
+      status.textContent = "Tour inklusive Medien gespeichert.";
+      resetTourForm();
+    } catch (error) {
+      console.error(error);
+      status.textContent = error.message || "Fehler beim Upload oder Speichern.";
     }
-
-    $("#tourStatus").textContent = "Tour gespeichert.";
-    resetTourForm();
   });
 
   $("#resetTourButton").addEventListener("click", resetTourForm);
@@ -1649,52 +1680,79 @@ function bindEvents() {
   $("#milestoneForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!firebaseReady) return alert("Firebase ist noch nicht konfiguriert.");
-
+    const status = $("#milestoneStatus");
     const stravaEmbedInput = $("#milestoneStravaEmbed").value.trim();
     const stravaEmbed = parseStravaEmbed(stravaEmbedInput);
     if (stravaEmbedInput && !stravaEmbed) {
-      $("#milestoneStatus").textContent = "Der Strava-Einbettungscode ist ungültig. Bitte den vollständigen Code aus Strava einfügen.";
+      status.textContent = "Der Strava-Einbettungscode ist ungültig. Bitte den vollständigen Code aus Strava einfügen.";
       return;
     }
 
-    const payload = {
-      title: $("#milestoneTitle").value,
-      icon: $("#milestoneIcon").value,
-      sportType: $("#milestoneSportType").value,
-      imageUrl: $("#milestoneImageUrl").value,
-      order: numeric($("#milestoneOrder").value),
-      completed: $("#milestoneCompleted").value === "true",
-      targetDistance: numeric($("#milestoneTargetDistance").value),
-      actualDistance: numeric($("#milestoneActualDistance").value),
-      completedDate: $("#milestoneCompletedDate").value,
-      plannedDate: $("#milestonePlannedDate").value,
-      preparationPercent: Math.max(0, Math.min(100, numeric($("#milestonePreparationPercent").value))),
-      latitude: $("#milestoneLatitude").value === "" ? null : numeric($("#milestoneLatitude").value),
-      longitude: $("#milestoneLongitude").value === "" ? null : numeric($("#milestoneLongitude").value),
-      duration: $("#milestoneDuration").value,
-      speed: $("#milestoneSpeed").value,
-      elevation: numeric($("#milestoneElevation").value),
-      route: $("#milestoneRoute").value,
-      subtitle: $("#milestoneSubtitle").value,
-      story: $("#milestoneStory").value,
-      coverUrl: $("#milestoneCoverUrl").value,
-      gpxUrl: $("#milestoneGpxUrl").value,
-      activityUrl: $("#milestoneActivityUrl").value,
-      stravaEmbed,
-      countInStats: $("#milestoneCountInStats").checked,
-      countAsAdventure: $("#milestoneCountAsAdventure").checked,
-      updatedAt: serverTimestamp()
-    };
+    const existingId = $("#milestoneId").value;
+    const existing = allMilestones().find((item) => item.id === existingId) || {};
+    const targetRef = existingId ? doc(db, "milestones", existingId) : doc(collection(db, "milestones"));
+    try {
+      let imageUrl = $("#milestoneImageUrl").value || existing.imageUrl || "";
+      let imageStoragePath = existing.imageStoragePath || "";
+      const imageFile = $("#milestoneImageFile").files?.[0];
+      if (imageFile) {
+        const uploaded = await uploadMediaFile(imageFile, `milestones/${targetRef.id}/roadmap`, status, "Roadmap-Bild");
+        imageUrl = uploaded.url;
+        imageStoragePath = uploaded.storagePath;
+      }
 
-    const id = $("#milestoneId").value;
-    if (id) {
-      await updateDoc(doc(db, "milestones", id), payload);
-    } else {
-      await addDoc(collection(db, "milestones"), { ...payload, createdAt: serverTimestamp() });
+      let coverUrl = $("#milestoneCoverUrl").value || existing.coverUrl || "";
+      let coverStoragePath = existing.coverStoragePath || "";
+      const coverFile = $("#milestoneCoverFile").files?.[0];
+      if (coverFile) {
+        const uploaded = await uploadMediaFile(coverFile, `milestones/${targetRef.id}/cover`, status, "Titelbild");
+        coverUrl = uploaded.url;
+        coverStoragePath = uploaded.storagePath;
+      }
+
+      const existingMedia = entityMedia(existing);
+      const newMedia = await uploadMediaList([...( $("#milestoneMediaFiles").files || [] )], `milestones/${targetRef.id}/media`, status);
+      const media = [...existingMedia, ...newMedia];
+
+      const payload = {
+        title: $("#milestoneTitle").value,
+        icon: $("#milestoneIcon").value,
+        sportType: $("#milestoneSportType").value,
+        imageUrl,
+        imageStoragePath,
+        order: numeric($("#milestoneOrder").value),
+        completed: $("#milestoneCompleted").value === "true",
+        targetDistance: numeric($("#milestoneTargetDistance").value),
+        actualDistance: numeric($("#milestoneActualDistance").value),
+        completedDate: $("#milestoneCompletedDate").value,
+        plannedDate: $("#milestonePlannedDate").value,
+        preparationPercent: Math.max(0, Math.min(100, numeric($("#milestonePreparationPercent").value))),
+        latitude: $("#milestoneLatitude").value === "" ? null : numeric($("#milestoneLatitude").value),
+        longitude: $("#milestoneLongitude").value === "" ? null : numeric($("#milestoneLongitude").value),
+        duration: $("#milestoneDuration").value,
+        speed: $("#milestoneSpeed").value,
+        elevation: numeric($("#milestoneElevation").value),
+        route: $("#milestoneRoute").value,
+        subtitle: $("#milestoneSubtitle").value,
+        story: $("#milestoneStory").value,
+        coverUrl,
+        coverStoragePath,
+        media,
+        gpxUrl: $("#milestoneGpxUrl").value,
+        activityUrl: $("#milestoneActivityUrl").value,
+        stravaEmbed,
+        countInStats: $("#milestoneCountInStats").checked,
+        countAsAdventure: $("#milestoneCountAsAdventure").checked,
+        updatedAt: serverTimestamp()
+      };
+      if (existingId) await updateDoc(targetRef, payload);
+      else await setDoc(targetRef, { ...payload, createdAt: serverTimestamp() });
+      status.textContent = "Meilenstein inklusive Medien gespeichert.";
+      resetMilestoneForm();
+    } catch (error) {
+      console.error(error);
+      status.textContent = error.message || "Fehler beim Upload oder Speichern.";
     }
-
-    $("#milestoneStatus").textContent = "Meilenstein gespeichert.";
-    resetMilestoneForm();
   });
 
   $("#resetMilestoneButton").addEventListener("click", resetMilestoneForm);
@@ -1749,45 +1807,48 @@ function bindEvents() {
   });
 
 
-  $("#galleryMediaUrl").addEventListener("input", renderGalleryLinkPreview);
-  $("#galleryMediaType").addEventListener("change", renderGalleryLinkPreview);
-
   $("#galleryForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!firebaseReady) return alert("Firebase ist noch nicht konfiguriert.");
-
-    const mediaUrl = String($("#galleryMediaUrl").value || "").trim();
-
-    if (!mediaUrl) {
-      $("#galleryStatus").textContent = "Bitte zuerst einen Medien-Link eintragen.";
-      return;
-    }
-
+    const status = $("#galleryStatus");
+    const existingId = $("#galleryItemId").value;
+    const existing = galleryItems.find((item) => item.id === existingId) || {};
+    const targetRef = existingId ? doc(db, "galleryItems", existingId) : doc(collection(db, "galleryItems"));
     try {
+      let url = $("#galleryMediaUrl").value || existing.url || "";
+      let storagePath = existing.storagePath || "";
+      let mediaType = existing.mediaType || $("#galleryMediaType").value || "image";
+      const file = $("#galleryMediaFile").files?.[0];
+      if (file) {
+        const uploaded = await uploadMediaFile(file, `items/${targetRef.id}`, status, "Datei");
+        url = uploaded.url;
+        storagePath = uploaded.storagePath;
+        mediaType = uploaded.mediaType;
+      }
+      if (!url) {
+        status.textContent = "Bitte zuerst ein Foto oder Video auswählen.";
+        return;
+      }
       const payload = {
         title: $("#galleryTitle").value,
         displayTarget: $("#galleryDisplayTarget").value,
-        mediaType: $("#galleryMediaType").value,
+        mediaType,
         order: numeric($("#galleryOrder").value),
         tourId: $("#galleryTourId").value,
+        milestoneId: $("#galleryMilestoneId").value,
         description: $("#galleryDescription").value,
         published: $("#galleryPublished").checked,
-        url: mediaUrl,
+        url,
+        storagePath,
         updatedAt: serverTimestamp()
       };
-
-      const id = $("#galleryItemId").value;
-      if (id) {
-        await updateDoc(doc(db, "galleryItems", id), payload);
-      } else {
-        await addDoc(collection(db, "galleryItems"), { ...payload, createdAt: serverTimestamp() });
-      }
-
-      $("#galleryStatus").textContent = "Galerie-Eintrag gespeichert.";
+      if (existingId) await updateDoc(targetRef, payload);
+      else await setDoc(targetRef, { ...payload, createdAt: serverTimestamp() });
+      status.textContent = "Galerie-Eintrag inklusive Datei gespeichert.";
       resetGalleryForm();
     } catch (error) {
       console.error(error);
-      $("#galleryStatus").textContent = error.message || "Fehler beim Speichern.";
+      status.textContent = error.message || "Fehler beim Upload oder Speichern.";
     }
   });
 
