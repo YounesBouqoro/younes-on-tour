@@ -697,12 +697,16 @@ function renderChallenges() {
 
 function renderGallery() {
   const manualItems = visibleGalleryItems();
+  const linkedMedia = [];
 
-  const tourPhotos = [];
   publishedTours().forEach((tour) => {
-    if (tour.coverUrl) tourPhotos.push({ src: tour.coverUrl, title: tour.title, tourId: tour.id, mediaType: "image", displayTarget: "both" });
-    const gallery = Array.isArray(tour.galleryUrls) ? tour.galleryUrls : [];
-    gallery.forEach((src) => tourPhotos.push({ src, title: tour.title, tourId: tour.id, mediaType: "image", displayTarget: "both" }));
+    if (tour.coverUrl) linkedMedia.push({ src: tour.coverUrl, title: tour.title, tourId: tour.id, mediaType: "image" });
+    entityMedia(tour).forEach((item) => linkedMedia.push({ src: item.url, title: tour.title, tourId: tour.id, mediaType: item.mediaType }));
+  });
+
+  allMilestones().forEach((milestone) => {
+    if (milestone.coverUrl) linkedMedia.push({ src: milestone.coverUrl, title: milestone.title, milestoneId: milestone.id, mediaType: "image" });
+    entityMedia(milestone).forEach((item) => linkedMedia.push({ src: item.url, title: milestone.title, milestoneId: milestone.id, mediaType: item.mediaType }));
   });
 
   const combined = [
@@ -711,11 +715,11 @@ function renderGallery() {
       title: item.title,
       id: item.id,
       mediaType: item.mediaType || "image",
-      description: item.description || "",
-      displayTarget: item.displayTarget || "both",
+      tourId: item.tourId || "",
+      milestoneId: item.milestoneId || "",
       isManualGalleryItem: true
     })),
-    ...tourPhotos
+    ...linkedMedia
   ].filter((item) => item.src);
 
   const grid = $("#galleryGrid");
@@ -724,34 +728,21 @@ function renderGallery() {
     return;
   }
 
-  grid.innerHTML = combined.slice(0, 12).map((item) => {
-    if (item.mediaType === "video") {
-      return `
-        <button class="gallery-tile video-tile" type="button" data-gallery-id="${safe(item.id)}">
-          <video src="${safe(item.src)}" muted playsinline preload="metadata"></video>
-          <span>${safe(item.title || "Video")}</span>
-        </button>
-      `;
-    }
-
+  grid.innerHTML = combined.slice(0, 16).map((item) => {
     const attr = item.isManualGalleryItem
       ? `data-gallery-id="${safe(item.id)}"`
-      : `data-tour-id="${safe(item.tourId)}"`;
-
-    return `
-      <button class="gallery-tile" type="button" ${attr} style="background-image:url('${safe(item.src)}')">
-        <span>${safe(item.title || "Bild")}</span>
-      </button>
-    `;
+      : item.tourId
+        ? `data-tour-id="${safe(item.tourId)}"`
+        : `data-milestone-id="${safe(item.milestoneId)}"`;
+    if (item.mediaType === "video") {
+      return `<button class="gallery-tile video-tile" type="button" ${attr}><video src="${safe(item.src)}" muted playsinline preload="metadata"></video><span>${safe(item.title || "Video")}</span></button>`;
+    }
+    return `<button class="gallery-tile" type="button" ${attr} style="background-image:url('${safe(item.src)}')"><span>${safe(item.title || "Bild")}</span></button>`;
   }).join("");
 
-  $$("#galleryGrid [data-tour-id]").forEach((button) => {
-    button.addEventListener("click", () => openTour(button.dataset.tourId));
-  });
-
-  $$("#galleryGrid [data-gallery-id]").forEach((button) => {
-    button.addEventListener("click", () => openGalleryItem(button.dataset.galleryId));
-  });
+  $$("#galleryGrid [data-tour-id]").forEach((button) => button.addEventListener("click", () => openTour(button.dataset.tourId)));
+  $$("#galleryGrid [data-milestone-id]").forEach((button) => button.addEventListener("click", () => openMilestone(button.dataset.milestoneId)));
+  $$("#galleryGrid [data-gallery-id]").forEach((button) => button.addEventListener("click", () => openGalleryItem(button.dataset.galleryId)));
 }
 
 function showModal(id) {
@@ -841,6 +832,7 @@ function openMilestone(id) {
   const relatedTours = publishedTours().filter((tour) => tour.milestoneId === id);
   const isLinkedToPublishedTour = relatedTours.length > 0;
   const image = milestone.coverUrl || relatedTours[0]?.coverUrl || PLACEHOLDER_IMAGE;
+  const media = entityMedia(milestone);
   const distance = numeric(milestone.actualDistance || milestone.targetDistance || milestone.distance);
   const status = milestone.completed ? "Erledigt" : "Geplant";
 
@@ -877,6 +869,7 @@ function openMilestone(id) {
         ${milestone.gpxUrl ? `<a href="${safe(milestone.gpxUrl)}" target="_blank" rel="noreferrer">GPX öffnen</a>` : ""}
       </div>
       ${milestone.gpxUrl ? `<div id="modalMap" class="map-box"></div>` : ""}
+      ${detailMediaMarkup(media, milestone.title)}
     </div>
   `;
 
@@ -969,7 +962,7 @@ function openTour(id, updateHash = true) {
   if (!tour) return;
 
   const image = tour.coverUrl || PLACEHOLDER_IMAGE;
-  const gallery = Array.isArray(tour.galleryUrls) ? tour.galleryUrls : [];
+  const media = entityMedia(tour);
 
   $("#tourDetail").innerHTML = `
     <div class="detail-hero" style="background-image:url('${safe(image)}')">
@@ -999,7 +992,7 @@ function openTour(id, updateHash = true) {
         ${tour.gpxUrl ? `<a href="${safe(tour.gpxUrl)}" target="_blank" rel="noreferrer">GPX öffnen</a>` : ""}
       </div>
       ${tour.gpxUrl ? `<div id="modalMap" class="map-box"></div>` : ""}
-      ${gallery.length ? `<div class="detail-gallery">${gallery.map((src, index) => `<img src="${safe(src)}" alt="${safe(tour.title)} – Bild ${index + 1}" loading="lazy">`).join("")}</div>` : ""}
+      ${detailMediaMarkup(media, tour.title)}
     </div>
   `;
 
@@ -1170,6 +1163,15 @@ function renderAdminSelectors() {
       `<option value="${safe(tour.id)}">${safe(tour.title)}</option>`
     )).join("");
     galleryTourSelect.value = gallerySelected;
+  }
+
+  const galleryMilestoneSelect = $("#galleryMilestoneId");
+  if (galleryMilestoneSelect) {
+    const selected = galleryMilestoneSelect.value;
+    galleryMilestoneSelect.innerHTML = `<option value="">Kein Meilenstein</option>` + allMilestones()
+      .filter((milestone) => !String(milestone.id).startsWith("demo-"))
+      .map((milestone) => `<option value="${safe(milestone.id)}">${safe(milestone.title)}</option>`).join("");
+    galleryMilestoneSelect.value = selected;
   }
 }
 
