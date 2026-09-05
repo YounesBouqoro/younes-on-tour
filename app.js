@@ -22,6 +22,12 @@ import {
   orderBy,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+import {
+  getStorage,
+  ref as storageRef,
+  uploadBytesResumable,
+  getDownloadURL
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-storage.js";
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -173,6 +179,7 @@ const demoChallenges = [
 let firebaseReady = false;
 let auth = null;
 let db = null;
+let storage = null;
 let currentUser = null;
 let tours = [];
 let milestones = [];
@@ -201,9 +208,10 @@ const isConfigured =
   !String(ADMIN_EMAIL).startsWith("DEINE_");
 
 if (isConfigured) {
-  const app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  db = getFirestore(app);
+  const firebaseApp = initializeApp(firebaseConfig);
+  auth = getAuth(firebaseApp);
+  db = getFirestore(firebaseApp);
+  storage = getStorage(firebaseApp);
   firebaseReady = true;
 } else {
   console.warn("Firebase ist noch nicht konfiguriert. Die Seite läuft im Demo-Modus.");
@@ -234,6 +242,128 @@ function isVideoType(value) {
 
 function mediaTypeFromFile(file) {
   return isVideoType(file?.type) ? "video" : "image";
+}
+
+const pendingUploads = {
+  tourCover: null,
+  tourMedia: [],
+  milestoneImage: null,
+  milestoneCover: null,
+  milestoneMedia: [],
+  gallery: null
+};
+
+function mediaTypeFromUrl(url) {
+  return /\.(mp4|mov|m4v|webm|ogg)(?:[?#]|$)/i.test(String(url || "")) ? "video" : "image";
+}
+
+function normalizeMedia(item = {}) {
+  return {
+    url: String(item.url || "").trim(),
+    storagePath: String(item.storagePath || "").trim(),
+    mediaType: item.mediaType === "video" ? "video" : "image",
+    name: String(item.name || "").trim()
+  };
+}
+
+function entityMedia(item = {}) {
+  const out = [];
+  const seen = new Set();
+  const add = (entry) => {
+    const media = normalizeMedia(entry);
+    if (!media.url || seen.has(media.url)) return;
+    seen.add(media.url);
+    out.push(media);
+  };
+  if (Array.isArray(item.media)) item.media.forEach(add);
+  if (Array.isArray(item.galleryUrls)) item.galleryUrls.forEach((url) => add({ url, mediaType: mediaTypeFromUrl(url) }));
+  return out;
+}
+
+function validateUpload(file) {
+  if (!file) throw new Error("Keine Datei ausgewählt.");
+  if (!/^image\//.test(file.type) && !/^video\//.test(file.type)) throw new Error("Erlaubt sind nur Bilder und Videos.");
+  if (file.size > 250 * 1024 * 1024) throw new Error(`${file.name} ist größer als 250 MB.`);
+}
+
+function renderFilePreview(file, selector) {
+  const container = $(selector);
+  if (!container || !file) return;
+  const url = URL.createObjectURL(file);
+  container.classList.remove("empty-media-preview");
+  container.innerHTML = file.type.startsWith("video/")
+    ? `<video src="${url}" controls playsinline></video>`
+    : `<img src="${url}" alt="">`;
+}
+
+function renderExistingPreview(url, mediaType, selector, emptyText) {
+  const container = $(selector);
+  if (!container) return;
+  if (!url) {
+    container.classList.add("empty-media-preview");
+    container.innerHTML = emptyText;
+    return;
+  }
+  container.classList.remove("empty-media-preview");
+  container.innerHTML = mediaType === "video"
+    ? `<video src="${safe(url)}" controls playsinline></video>`
+    : `<img src="${safe(url)}" alt="">`;
+}
+
+function renderFilesPreview(files, selector) {
+  const container = $(selector);
+  if (!container) return;
+  if (!files?.length) {
+    container.innerHTML = `<div class="empty-media-preview">Noch keine neuen Medien ausgewählt.</div>`;
+    return;
+  }
+  container.innerHTML = [...files].map((file) => {
+    const url = URL.createObjectURL(file);
+    return file.type.startsWith("video/")
+      ? `<video src="${url}" controls playsinline></video>`
+      : `<img src="${url}" alt="">`;
+  }).join("");
+}
+
+function uploadMediaFile(file, folder, statusElement, label = "Datei") {
+  if (!storage) return Promise.reject(new Error("Firebase Storage ist nicht verfügbar."));
+  validateUpload(file);
+  const path = `gallery/${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${fileSafeName(file.name)}`;
+  const task = uploadBytesResumable(storageRef(storage, path), file, {
+    contentType: file.type,
+    cacheControl: "public,max-age=31536000"
+  });
+  return new Promise((resolve, reject) => {
+    task.on("state_changed", (snapshot) => {
+      const pct = snapshot.totalBytes ? Math.round(snapshot.bytesTransferred / snapshot.totalBytes * 100) : 0;
+      if (statusElement) statusElement.textContent = `${label} wird hochgeladen … ${pct}%`;
+    }, (error) => {
+      console.error(error);
+      reject(new Error(error?.code === "storage/unauthorized"
+        ? "Upload nicht erlaubt. Bitte Storage-Regeln und Admin-Login prüfen."
+        : "Upload fehlgeschlagen. Prüfe, ob Firebase Storage im Blaze-Tarif aktiviert ist."));
+    }, async () => {
+      const url = await getDownloadURL(task.snapshot.ref);
+      resolve({ url, storagePath: path, mediaType: mediaTypeFromFile(file), name: file.name });
+    });
+  });
+}
+
+async function uploadMediaList(files, folder, statusElement) {
+  const uploaded = [];
+  for (let i = 0; i < files.length; i += 1) {
+    uploaded.push(await uploadMediaFile(files[i], folder, statusElement, `Medium ${i + 1}/${files.length}`));
+  }
+  return uploaded;
+}
+
+function detailMediaMarkup(media, title) {
+  if (!media.length) return "";
+  return `<div class="detail-gallery">${media.map((item, index) => (
+    item.mediaType === "video"
+      ? `<video src="${safe(item.url)}" controls playsinline preload="metadata" aria-label="${safe(title)} – Video ${index + 1}"></video>`
+      : `<img src="${safe(item.url)}" alt="${safe(title)} – Bild ${index + 1}" loading="lazy">`
+  )).join("")}</div>`;
 }
 
 function targetLabel(value) {
