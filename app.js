@@ -325,6 +325,18 @@ function renderFilesPreview(files, selector) {
   }).join("");
 }
 
+function renderStoredMediaPreview(media, selector) {
+  const container = $(selector);
+  if (!container) return;
+  if (!media?.length) {
+    container.innerHTML = `<div class="empty-media-preview">Noch keine Medien gespeichert.</div>`;
+    return;
+  }
+  container.innerHTML = media.map((item) => item.mediaType === "video"
+    ? `<video src="${safe(item.url)}" controls playsinline preload="metadata"></video>`
+    : `<img src="${safe(item.url)}" alt="">`).join("");
+}
+
 function uploadMediaFile(file, folder, statusElement, label = "Datei") {
   if (!storage) return Promise.reject(new Error("Firebase Storage ist nicht verfügbar."));
   validateUpload(file);
@@ -1302,6 +1314,10 @@ function resetTourForm() {
   $("#tourId").value = "";
   $("#tourDate").value = new Date().toISOString().slice(0, 10);
   $("#tourPublished").checked = true;
+  $("#tourCoverUrl").value = "";
+  $("#tourGalleryUrls").value = "";
+  renderExistingPreview("", "image", "#tourCoverPreview", "Noch kein Titelbild ausgewählt.");
+  renderStoredMediaPreview([], "#tourMediaPreview");
   $("#tourStatus").textContent = "";
 }
 
@@ -1322,6 +1338,8 @@ function editTour(id) {
   $("#tourMilestoneId").value = tour.milestoneId || "";
   $("#tourCoverUrl").value = tour.coverUrl || "";
   $("#tourGalleryUrls").value = Array.isArray(tour.galleryUrls) ? tour.galleryUrls.join("\n") : "";
+  renderExistingPreview(tour.coverUrl || "", "image", "#tourCoverPreview", "Noch kein Titelbild ausgewählt.");
+  renderStoredMediaPreview(entityMedia(tour), "#tourMediaPreview");
   $("#tourActivityUrl").value = tour.activityUrl || "";
   $("#tourStravaEmbed").value = stravaEmbedCode(tour.stravaEmbed);
   $("#tourVideoUrl").value = tour.videoUrl || "";
@@ -1346,6 +1364,11 @@ function resetMilestoneForm() {
   $("#milestoneSportType").value = "bike";
   $("#milestoneCountInStats").checked = true;
   $("#milestoneCountAsAdventure").checked = true;
+  $("#milestoneImageUrl").value = "";
+  $("#milestoneCoverUrl").value = "";
+  renderExistingPreview("", "image", "#milestoneImagePreview", "Noch kein Roadmap-Bild ausgewählt.");
+  renderExistingPreview("", "image", "#milestoneCoverPreview", "Noch kein Titelbild ausgewählt.");
+  renderStoredMediaPreview([], "#milestoneMediaPreview");
   $("#milestoneStatus").textContent = "";
 }
 
@@ -1358,6 +1381,7 @@ function editMilestone(id) {
   $("#milestoneIcon").value = milestone.icon || "";
   $("#milestoneSportType").value = milestone.sportType || "bike";
   $("#milestoneImageUrl").value = milestone.imageUrl || "";
+  renderExistingPreview(milestone.imageUrl || "", "image", "#milestoneImagePreview", "Noch kein Roadmap-Bild ausgewählt.");
   $("#milestoneOrder").value = milestone.order || "";
   $("#milestoneCompleted").value = String(Boolean(milestone.completed));
   $("#milestoneTargetDistance").value = milestone.targetDistance || "";
@@ -1374,6 +1398,8 @@ function editMilestone(id) {
   $("#milestoneSubtitle").value = milestone.subtitle || "";
   $("#milestoneStory").value = milestone.story || "";
   $("#milestoneCoverUrl").value = milestone.coverUrl || "";
+  renderExistingPreview(milestone.coverUrl || "", "image", "#milestoneCoverPreview", "Noch kein Titelbild ausgewählt.");
+  renderStoredMediaPreview(entityMedia(milestone), "#milestoneMediaPreview");
   $("#milestoneGpxUrl").value = milestone.gpxUrl || "";
   $("#milestoneActivityUrl").value = milestone.activityUrl || "";
   $("#milestoneStravaEmbed").value = stravaEmbedCode(milestone.stravaEmbed);
@@ -1436,44 +1462,25 @@ function resetGalleryForm() {
   $("#galleryPublished").checked = true;
   $("#galleryDisplayTarget").value = "both";
   $("#galleryMediaType").value = "image";
+  $("#galleryMediaUrl").value = "";
+  renderExistingPreview("", "image", "#galleryUploadPreview", "Noch keine Datei ausgewählt.");
   $("#galleryStatus").textContent = "";
-  renderGalleryLinkPreview();
-}
-
-function renderGalleryLinkPreview() {
-  const preview = $("#galleryUploadPreview");
-  if (!preview) return;
-
-  const url = String($("#galleryMediaUrl")?.value || "").trim();
-  const type = $("#galleryMediaType")?.value || "image";
-
-  if (!url) {
-    preview.classList.add("hidden");
-    preview.innerHTML = "";
-    return;
-  }
-
-  preview.classList.remove("hidden");
-  preview.innerHTML = type === "video"
-    ? `<video src="${safe(url)}" controls playsinline></video>`
-    : `<img src="${safe(url)}" alt="">`;
 }
 
 function editGalleryItem(id) {
   const item = galleryItems.find((entry) => entry.id === id);
   if (!item) return;
-
   $("#galleryItemId").value = item.id;
   $("#galleryTitle").value = item.title || "";
   $("#galleryDisplayTarget").value = item.displayTarget || "both";
   $("#galleryMediaType").value = item.mediaType || "image";
   $("#galleryOrder").value = item.order || "";
   $("#galleryTourId").value = item.tourId || "";
+  $("#galleryMilestoneId").value = item.milestoneId || "";
   $("#galleryMediaUrl").value = item.url || "";
   $("#galleryDescription").value = item.description || "";
   $("#galleryPublished").checked = item.published !== false;
-
-  renderGalleryLinkPreview();
+  renderExistingPreview(item.url || "", item.mediaType || "image", "#galleryUploadPreview", "Noch keine Datei ausgewählt.");
   openAdminTab("gallery");
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
