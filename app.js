@@ -933,15 +933,61 @@ function milestoneCoordinates(milestone) {
   return key ? knownDestinations[key] : null;
 }
 
+function setOverviewMapInteraction(enabled = false) {
+  if (!overviewMap) return;
+  const mobile = window.matchMedia("(max-width: 760px)").matches;
+  const interactive = mobile ? enabled : true;
+  const shell = $("#overviewMapShell");
+  const button = $("#mapInteractionToggle");
+
+  ["dragging", "touchZoom", "doubleClickZoom", "boxZoom", "keyboard"].forEach((handlerName) => {
+    const handler = overviewMap?.[handlerName];
+    if (!handler) return;
+    interactive ? handler.enable() : handler.disable();
+  });
+
+  shell?.classList.toggle("map-interaction-active", mobile && interactive);
+
+  if (button) {
+    button.hidden = !mobile;
+    button.setAttribute("aria-pressed", mobile && interactive ? "true" : "false");
+    button.textContent = mobile && interactive ? "Scrollen freigeben" : "Karte bewegen";
+  }
+}
+
+function bindOverviewMapInteraction() {
+  const button = $("#mapInteractionToggle");
+  if (!button || button.dataset.bound === "true") return;
+
+  button.dataset.bound = "true";
+  button.addEventListener("click", () => {
+    const active = $("#overviewMapShell")?.classList.contains("map-interaction-active");
+    setOverviewMapInteraction(!active);
+  });
+
+  const media = window.matchMedia("(max-width: 760px)");
+  media.addEventListener?.("change", () => setOverviewMapInteraction(false));
+}
+
 async function renderOverviewMap() {
   const container = $("#overviewMap");
   const status = $("#overviewMapStatus");
   if (!container || !window.L) return;
   const version = ++overviewRenderVersion;
   if (!overviewMap) {
-    overviewMap = L.map(container, { scrollWheelZoom: false });
+    const mobileMap = window.matchMedia("(max-width: 760px)").matches;
+    overviewMap = L.map(container, {
+      scrollWheelZoom: false,
+      dragging: !mobileMap,
+      touchZoom: !mobileMap,
+      doubleClickZoom: !mobileMap,
+      boxZoom: !mobileMap,
+      keyboard: !mobileMap
+    });
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "&copy; OpenStreetMap" }).addTo(overviewMap);
     overviewMap.setView([51.2277, 6.7735], 6);
+    bindOverviewMapInteraction();
+    setOverviewMapInteraction(false);
   }
   overviewLayer?.remove();
   overviewLayer = L.layerGroup().addTo(overviewMap);
